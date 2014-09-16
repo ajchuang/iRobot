@@ -44,9 +44,9 @@ function assignment_01 (serPort)
             update_moving_stats (serPort);
 
             % check if mission completed
-            %if (checkMovingStats ())
-            %    break;
-            %end
+            if (checkMovingStats ())
+                break;
+            end
         end
 
         % Step 1. check if hitting the wall
@@ -177,6 +177,7 @@ function t_ang= bumpReact (serPort, wall, right, center, left)
     t_ang = ang
 end
 
+% This is buggy -
 function update_moving_stats (serPort)
 
     global g_total_x_dist;
@@ -196,8 +197,9 @@ function isDone= checkMovingStats ()
     global g_total_x_dist;
     global g_total_y_dist;
     global g_total_angle;
+    global g_total_dist;
 
-    if (g_total_dist > 10 && g_total_x_dist <= 0.3 && g_total_y_dist <= 0.3)
+    if (g_total_dist > 1.0 && g_total_x_dist <= 0.3 && g_total_y_dist <= 0.3)
         isDone = true;
     else
         isDone = false;
