@@ -5,15 +5,21 @@
 % finalRad - Double, final turning radius of the Create (m)
 function assignment_01 (serPort)
 
-    % constants
-    c_FastFwdVel = 0.2;
-    c_SlowFwdVel = 0.1;
-    c_VerySlowFwdVel = 0.05;
-    c_BackOffVel = 0.05;
-    c_BackOffDist = -0.1; % meters %
+    init_global ();
 
-    % The flag is used to indicate if the obstable is seen.
-    found_box = false
+    % constants
+    global c_FastFwdVel;
+    global c_SlowFwdVel;
+    global c_VerySlowFwdVel;
+    global c_BackOffVel;
+    global c_BackOffDist; % meters %
+    global g_found_box;
+    global c_LeftTurnAngle;
+    global c_RightTurnAngle;
+    global c_CenterTurnAngle;
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_total_angle;
 
     % loop variables
     wallSensor = false
@@ -23,11 +29,25 @@ function assignment_01 (serPort)
     p_bLeft = false
     p_ang = 0
 
+    % For the physical Create only, it is assumed that the function call
+    % Calling RoombaInit is unnecessary if using the simulator.
+    % serPort= RoombaInit(comPort) was done prior to running this program.
+
     % Start robot moving: go straight
     SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0)
 
     % Enter main loop
     while (true)
+
+        % step 0: update last readings
+        if (g_found_box)
+            update_moving_stats (serPort);
+
+            % check if mission completed
+            %if (checkMovingStats ())
+            %    break;
+            %end
+        end
 
         % Step 1. check if hitting the wall
         % Check for and react to bump sensor readings
@@ -43,42 +63,31 @@ function assignment_01 (serPort)
         if (bumped)
 
             print 'bump into the wall'
-            found_box = true
 
+            if (g_found_box == false)
+                DistanceSensorRoomba (serPort)
+                AngleSensorRoomba (serPort)
+            end
+
+            g_found_box = true
+
+            % remember the last angle we turn
             p_ang = bumpReact (serPort, wallSensor, bRight, bCenter, bLeft)
 
             % turning is done, let the robot go straight.
             SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0)
         else
 
-            if (found_box)
+            if (g_found_box)
                 if (wallSensor)
                     % a minor optimization using Wall Sensor
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0)
                 else
-                    turnAngle (serPort, 0.1, (-0.5) * p_ang);
+                    turnAngle (serPort, 0.1, (-1.0) * p_ang);
+                    update_moving_stats (serPort);
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0)
                 end
             end
-
-%            % Step 2. If not hitting the wall, check if along the wall
-%            if (false) % (wallSensor)
-%                % if along the wall we go faster
-%                print 'along the wall'
-%                SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0)
-%
-%            else
-%                if (found_box == true)
-%                    % goodness, we need to found the box again
-%                    print 'turning'
-%                    SetFwdVelAngVelCreate (serPort, (-1.0) * c_FastFwdVel, 0.0)
-%                    pause (0.1)
-%
-%                    do_right_turning (serPort)
-%                else
-%                    SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0)
-%                end
-%            end
         end
 
         % Briefly pause to avoid continuous loop iteration
@@ -86,7 +95,7 @@ function assignment_01 (serPort)
     end
 
     % Specify output parameter
-    finalRad= v/w;
+    finalRad= 0.0;
 
     % Stop robot motion
     SetFwdVelAngVelCreate (serPort, 0, 0)
@@ -99,142 +108,98 @@ function assignment_01 (serPort)
     % Don't use these if you call RoombaInit prior to the control program
 end
 
-% Check bump sensors and steer the robot away from obstacles if necessary
-%
-% Input:
-% serPort - Serial port object, used for communicating over bluetooth
-%
-% Output:
-% bumped - Boolean, true if bump sensor is activated
-function bumped= bumpCheckReact (serPort)
+% init all global variables
+function init_global ()
 
-    % Check bump sensors (ignore wheel drop sensors)
-    [BumpRight BumpLeft WheDropRight ...
-     WheDropLeft WheDropCaster ...
-     BumpFront] = BumpsWheelDropsSensorsRoomba (serPort);
+    % constants
+    global c_FastFwdVel;
+    global c_SlowFwdVel;
+    global c_VerySlowFwdVel;
+    global c_BackOffVel;
+    global c_BackOffDist; % meters %
+    global c_LeftTurnAngle;
+    global c_RightTurnAngle;
+    global c_CenterTurnAngle;
+    global g_found_box;
+    global g_total_dist;
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_total_angle;
 
-    bumped = BumpRight || BumpLeft || BumpFront;
+    % constants
+    c_FastFwdVel = 0.2;
+    c_SlowFwdVel = 0.1;
+    c_VerySlowFwdVel = 0.05;
+    c_BackOffVel = 0.05;
+    c_BackOffDist = -0.03;      % meters %
+    c_LeftTurnAngle = 30;
+    c_RightTurnAngle = 5;
+    c_CenterTurnAngle = 30;
 
-    % Halt forward motion and turn only if bumped
-    if bumped
-
-        % back off for a little bit
-        travelDist (serPort, 0.05, -0.05);
-
-        % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
-        if ((BumpRight && BumpLeft) || BumpFront)
-            ang = 15;
-        elseif BumpRight
-            ang = 15;
-        elseif BumpLeft
-            ang = 60;
-        end
-
-        % turn desired angle
-        turnAngle (serPort, 0.1, ang);
-    end
+    % The flag is used to indicate if the obstable is seen.
+    g_found_box = false;
+    g_total_dist = 0;
+    g_total_x_dist = 0.0;
+    g_total_y_dist = 0.0;
+    g_total_angle = 0.0;
 end
 
+% init all global variables
 function t_ang= bumpReact (serPort, wall, right, center, left)
 
-    % back off for a little bit
-    travelDist (serPort, 0.05, -0.01);
+    % constants
+    global c_FastFwdVel;
+    global c_SlowFwdVel;
+    global c_VerySlowFwdVel;
+    global c_BackOffVel;
+    global c_BackOffDist; % meters %
+    global c_LeftTurnAngle;
+    global c_RightTurnAngle;
+    global c_CenterTurnAngle;
+    global g_found_box;
 
-    %if (wall) % consider wall sensor ?
-    %    if ((right && left) || center)
-    %        %turn counter-clockwise
-    %        ang = 60
-    %    else if (right)
-    %        ang = 15
-    %    else if (left)
-    %        ang = 90
-    %    end
-    %else
-        % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
-        if ((right && left) || center)
-            ang = 30;
-        elseif right
-            ang = 5;
-        elseif left
-            ang = 30;
-        end
-    %end
+    % back off for a little bit
+    travelDist (serPort, c_BackOffVel, c_BackOffDist);
+    update_moving_stats (serPort);
+
+    % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
+    if ((right && left) || center)
+        ang = c_CenterTurnAngle;
+    elseif right
+        ang = c_RightTurnAngle;
+    elseif left
+        ang = c_LeftTurnAngle;
+    end
 
     % turn desired angle
     turnAngle (serPort, 0.1, ang);
+    update_moving_stats (serPort);
     t_ang = ang
 end
 
-function wallSensor= wallCheck (serPort)
+function update_moving_stats (serPort)
 
-    [BumpRight BumpLeft BumpFront Wall virtWall CliffLft ...
-     CliffRgt CliffFrntLft CliffFrntRgt LeftCurrOver ...
-     RightCurrOver DirtL DirtR ButtonPlay ButtonAdv Dist ...
-     Angle Volts Current Temp Charge Capacity pCharge]= ...
-        AllSensorsReadRoomba (serPort)
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_total_angle;
+    global g_total_dist;
 
-    while true
-        [BumpRight BumpLeft WheDropRight ...
-         WheDropLeft WheDropCaster ...
-         BumpFront] = BumpsWheelDropsSensorsRoomba (serPort);
-
-        if (Wall)
-            wallSensor= true;
-        else
-            wallSensor= false;
-        end
-    end
+    dist = DistanceSensorRoomba (serPort)
+    g_total_dist = g_total_dist + dist;
+    g_total_angle = g_total_angle + AngleSensorRoomba (serPort);
+    g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
+    g_total_y_dist = g_total_y_dist + dist * tan (g_total_angle);
 end
 
-function do_right_turning (serPort)
+function isDone= checkMovingStats ()
 
-    corner_met = false
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_total_angle;
 
-    turnAngle (serPort, 0.1, -15);
-    travelDist (serPort, 0.05, 0.10);
-
-    while true
-        % Check bump sensors (ignore wheel drop sensors)
-        [BumpRight BumpLeft WheDropRight ...
-         WheDropLeft WheDropCaster ...
-         BumpFront] = BumpsWheelDropsSensorsRoomba (serPort);
-
-        if BumpRight
-            if corner_met == true
-                break;
-            else
-                travelDist (serPort, 0.05, -0.10);
-                turnAngle (serPort, 0.1, 15);
-                travelDist (serPort, 0.05, 0.10);
-            end
-        else
-            if corner_met == false
-                corner_met == true
-                turnAngle (serPort, 0.1, -30);
-                travelDist (serPort, 0.05, 0.10);
-            else
-                turnAngle (serPort, 0.1, -30);
-                travelDist (serPort, 0.05, 0.10);
-            end
-        end
-
-        pause (0.1)
+    if (g_total_dist > 10 && g_total_x_dist <= 0.3 && g_total_y_dist <= 0.3)
+        isDone = true;
+    else
+        isDone = false;
     end
-end
-
-function w= v2w(v)
-% Calculate the maximum allowable angular velocity from the linear velocity
-%
-% Input:
-% v - Forward velocity of Create (m/s)
-%
-% Output:
-% w - Angular velocity of Create (rad/s)
-
-    % Robot constants
-    maxWheelVel= 0.5;   % Max linear velocity of each drive wheel (m/s)
-    robotRadius= 0.2;   % Radius of the robot (m)
-
-    % Max velocity combinations obey rule v+wr <= v_max
-    w= (maxWheelVel-v)/robotRadius;
 end
