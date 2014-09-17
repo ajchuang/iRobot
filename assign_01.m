@@ -5,12 +5,13 @@
 % finalRad - Double, final turning radius of the Create (m)
 function assignment_01 (serPort)
 
-    init_global ();
-
     % constants
+    global c_SimMode;
+    global c_LoopInteval;
     global c_FastFwdVel;
     global c_SlowFwdVel;
     global c_VerySlowFwdVel;
+    global c_AfterBumpFwdVel;
     global c_BackOffVel;
     global c_BackOffDist; % meters %
 
@@ -23,23 +24,32 @@ function assignment_01 (serPort)
     global g_total_y_dist;
     global g_total_angle;
 
+    init_global ();
+
     % loop variables
-    wallSensor = false;
-    bumped = false;
-    p_bRight = false;
-    p_bCenter = false;
-    p_bLeft = false;
-    p_ang = 0;
+    wallSensor  = false;
+    bumped      = false;
+    p_bRight    = false;
+    p_bCenter   = false;
+    p_bLeft     = false;
+    p_ang       = 0;
+
 
     % For the physical Create only, it is assumed that the function call
     % Calling RoombaInit is unnecessary if using the simulator.
-    % serPort= RoombaInit(comPort) was done prior to running this program.
+
+    if (c_SimMode == false)
+        serPort = RoombaInit_mac ('ElementSerial-ElementSe');
+    end
 
     % Start robot moving: go straight
-    SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0);
+    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
 
-    % Enter main loop
+    % Enter main loop: control cycle is about 2.3 (sec)
     while (true)
+
+        % turn off the Roomba lights
+        SetLEDsRoomba (serPort, 0, 0, 0);
 
         % step 0: update last readings
         if (g_found_box)
@@ -65,7 +75,7 @@ function assignment_01 (serPort)
         % If obstacle was hit reset distance and angle recorders
         if (bumped)
 
-            display ('bump into the wall')
+            display ('bump into the wall');
 
             if (g_found_box == false)
                 % reset moving stats
@@ -73,6 +83,7 @@ function assignment_01 (serPort)
                 AngleSensorRoomba (serPort);
             end
 
+            % set the fox is found
             g_found_box = true;
 
             % remember the last angle we turn
@@ -84,31 +95,39 @@ function assignment_01 (serPort)
 
             if (g_found_box)
                 if (wallSensor)
+                    display ('wall sensor activated - go straight');
+
                     % a minor optimization using Wall Sensor
-                    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+                    BeepRoomba (serPort);
+                    SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0);
                 else
-                    turnAngle (serPort, 0.1, (-1.0) * p_ang);
+                    % need to find the wall again
+                    turnAngle (serPort, 0.01, (-0.67) * p_ang);
                     update_moving_stats (serPort);
+
+                    % Running a little bit hurry
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 end
             end
         end
 
         % Briefly pause to avoid continuous loop iteration
-        pause (0.1)
+        pause (c_LoopInteval);
     end
 
     % Specify output parameter
-    finalRad= 0.0;
+    finalRad = 0.0;
 
     % Stop robot motion
     SetFwdVelAngVelCreate (serPort, 0, 0);
 
     % If you call RoombaInit inside the control program, this would be a
     % good place to clean up the serial port with...
-    % fclose(serPort)
-    % delete(serPort)
-    % clear(serPort)
+    if c_SimMode == false
+        fclose (serPort);
+        delete (serPort);
+        clear  (serPort);
+    end
     % Don't use these if you call RoombaInit prior to the control program
 end
 
@@ -116,11 +135,14 @@ end
 function init_global ()
 
     % constants
+    global c_SimMode;
+    global c_LoopInteval;
     global c_FastFwdVel;
     global c_SlowFwdVel;
     global c_VerySlowFwdVel;
     global c_BackOffVel;
     global c_BackOffDist; % meters %
+    global c_TurnSpeed;
     global c_LeftTurnAngle;
     global c_RightTurnAngle;
     global c_CenterTurnAngle;
@@ -133,22 +155,29 @@ function init_global ()
     global g_total_angle;
 
     % constants
-    c_FastFwdVel = 0.2;
-    c_SlowFwdVel = 0.1;
-    c_VerySlowFwdVel = 0.05;
-    c_BackOffVel = 0.05;
-    c_BackOffDist = -0.03;      % meters %
-    c_LeftTurnAngle = 30;
-    c_RightTurnAngle = 5;
-    c_CenterTurnAngle = 30;
-    c_MaxToleranceRadius = 1.5; % meters %
+    c_SimMode           = false;
+    c_LoopInteval       = 0.001;
+    c_FastFwdVel        = 0.05;
+    c_SlowFwdVel        = 0.025;
+    c_AfterBumpFwdVel   = 0.075;
+    c_VerySlowFwdVel    = 0.05;
+
+    c_BackOffVel        = 0.025;
+    c_BackOffDist       = -0.01;
+    c_TurnSpeed         = 0.025;
+
+    c_LeftTurnAngle     = 60;
+    c_RightTurnAngle    = 25;
+    c_CenterTurnAngle   = 45;
+
+    c_MaxToleranceRadius = 0.3; % meters %
 
     % The flag is used to indicate if the obstable is seen.
-    g_found_box = false;
-    g_total_dist = 0;
-    g_total_x_dist = 0.0;
-    g_total_y_dist = 0.0;
-    g_total_angle = 0.0;
+    g_found_box         = false;
+    g_total_dist        = 0;
+    g_total_x_dist      = 0.0;
+    g_total_y_dist      = 0.0;
+    g_total_angle       = 0.0;
 end
 
 % init all global variables
@@ -167,15 +196,21 @@ function t_ang= bumpReact (serPort, wall, right, center, left)
 
     % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
     if ((right && left) || center)
+        display ('bumpReact: center')
         ang = c_CenterTurnAngle;
+        SetLEDsRoomba (serPort, 3, 50, 50)
     elseif right
+        display ('bumpReact: right')
         ang = c_RightTurnAngle;
+        SetLEDsRoomba (serPort, 2, 0, 50)
     elseif left
+        display ('bumpReact: left')
         ang = c_LeftTurnAngle;
+        SetLEDsRoomba (serPort, 1, 100, 50)
     end
 
     % turn desired angle
-    turnAngle (serPort, 0.1, ang);
+    turnAngle (serPort, 0.01, ang);
     update_moving_stats (serPort);
     t_ang = ang;
 end
@@ -192,7 +227,7 @@ function update_moving_stats (serPort)
     g_total_dist = g_total_dist + dist;
     g_total_angle = g_total_angle + AngleSensorRoomba (serPort);
     g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
-    g_total_y_dist = g_total_y_dist + dist * tan (g_total_angle);
+    g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
 end
 
 function isDone= checkMovingStats ()
@@ -205,10 +240,10 @@ function isDone= checkMovingStats ()
 
     radius = sqrt (g_total_x_dist ^ 2 + g_total_y_dist ^ 2);
 
-    display ('current radius = %d\n', radius);
-    display ('current g_total_dist = %d\n', g_total_dist);
+    display (sprintf ('current radius = %f', radius));
+    display (sprintf ('current g_total_dist = %f', g_total_dist));
 
-    if (g_total_dist > 2.0 && radius < c_MaxToleranceRadius)
+    if (g_total_dist > 0.5 && radius < c_MaxToleranceRadius)
         isDone = true;
     else
         isDone = false;
