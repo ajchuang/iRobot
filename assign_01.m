@@ -51,6 +51,7 @@ function assignment_01 (serPort)
 
         % turn off the Roomba lights
         SetLEDsRoomba (serPort, 0, 0, 1);
+        BeepRoomba (serPort);
 
         % step 0: update last readings
         if (g_found_box)
@@ -65,11 +66,14 @@ function assignment_01 (serPort)
 
         % Step 1. check if hitting the wall
         % Check for and react to bump sensor readings
-        [bRight bLeft bCenter wallSensor virtWall CliffLft ...
-         CliffRgt CliffFrntLft CliffFrntRgt LeftCurrOver ...
-         RightCurrOver DirtL DirtR ButtonPlay ButtonAdv Dist ...
-         Angle Volts Current Temp Charge Capacity pCharge]= ...
-            AllSensorsReadRoomba (serPort);
+        %[bRight bLeft bCenter wallSensor virtWall CliffLft ...
+        % CliffRgt CliffFrntLft CliffFrntRgt LeftCurrOver ...
+        % RightCurrOver DirtL DirtR ButtonPlay ButtonAdv Dist ...
+        % Angle Volts Current Temp Charge Capacity pCharge]= ...
+        %    AllSensorsReadRoomba (serPort);
+
+        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+        wallSensor = WallSensorReadRoomba (serPort);
 
         bumped = bRight | bCenter | bLeft;
 
@@ -100,10 +104,10 @@ function assignment_01 (serPort)
 
                     % a minor optimization using Wall Sensor
                     BeepRoomba (serPort);
-                    SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0);
+                    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
                     % need to find the wall again
-                    turnAngle (serPort, c_TurnSpeed, (-0.67) * p_ang);
+                    turnAngle (serPort, c_TurnSpeed, (-1.33) * p_ang);
                     update_moving_stats (serPort);
 
                     % Running a little bit hurry
@@ -122,12 +126,16 @@ function assignment_01 (serPort)
     % Stop robot motion
     SetFwdVelAngVelCreate (serPort, 0, 0);
 
+    BeepRoomba (serPort);
+    BeepRoomba (serPort);
+
+
     % If you call RoombaInit inside the control program, this would be a
     % good place to clean up the serial port with...
     if c_SimMode == false
         fclose (serPort);
         delete (serPort);
-        clear  (serPort);
+        clear  ('ElementSerial-ElementSe');
     end
     % Don't use these if you call RoombaInit prior to the control program
 end
