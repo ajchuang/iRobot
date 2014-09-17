@@ -18,6 +18,7 @@ function assignment_01 (serPort)
     global c_LeftTurnAngle;
     global c_RightTurnAngle;
     global c_CenterTurnAngle;
+    global c_TurnSpeed;
 
     global g_found_box;
     global g_total_x_dist;
@@ -49,7 +50,7 @@ function assignment_01 (serPort)
     while (true)
 
         % turn off the Roomba lights
-        SetLEDsRoomba (serPort, 0, 0, 0);
+        SetLEDsRoomba (serPort, 0, 0, 1);
 
         % step 0: update last readings
         if (g_found_box)
@@ -102,7 +103,7 @@ function assignment_01 (serPort)
                     SetFwdVelAngVelCreate (serPort, c_FastFwdVel, 0.0);
                 else
                     % need to find the wall again
-                    turnAngle (serPort, 0.01, (-0.67) * p_ang);
+                    turnAngle (serPort, c_TurnSpeed, (-0.67) * p_ang);
                     update_moving_stats (serPort);
 
                     % Running a little bit hurry
@@ -167,7 +168,7 @@ function init_global ()
     c_TurnSpeed         = 0.025;
 
     c_LeftTurnAngle     = 60;
-    c_RightTurnAngle    = 25;
+    c_RightTurnAngle    = 20;
     c_CenterTurnAngle   = 45;
 
     c_MaxToleranceRadius = 0.3; % meters %
@@ -189,6 +190,7 @@ function t_ang= bumpReact (serPort, wall, right, center, left)
     global c_LeftTurnAngle;
     global c_RightTurnAngle;
     global c_CenterTurnAngle;
+    global c_TurnSpeed;
 
     % back off for a little bit
     travelDist (serPort, c_BackOffVel, c_BackOffDist);
@@ -198,19 +200,19 @@ function t_ang= bumpReact (serPort, wall, right, center, left)
     if ((right && left) || center)
         display ('bumpReact: center')
         ang = c_CenterTurnAngle;
-        SetLEDsRoomba (serPort, 3, 50, 50)
+        SetLEDsRoomba (serPort, 3, 50, 50);
     elseif right
         display ('bumpReact: right')
         ang = c_RightTurnAngle;
-        SetLEDsRoomba (serPort, 2, 0, 50)
+        SetLEDsRoomba (serPort, 2, 0, 50);
     elseif left
         display ('bumpReact: left')
         ang = c_LeftTurnAngle;
-        SetLEDsRoomba (serPort, 1, 100, 50)
+        SetLEDsRoomba (serPort, 1, 100, 50);
     end
 
     % turn desired angle
-    turnAngle (serPort, 0.01, ang);
+    turnAngle (serPort, c_TurnSpeed, ang);
     update_moving_stats (serPort);
     t_ang = ang;
 end
