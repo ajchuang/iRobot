@@ -107,11 +107,12 @@ function assignment_01 (serPort)
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
                     % need to find the wall again
-                    turnAngle (serPort, c_TurnSpeed, (-1.33) * p_ang);
-                    update_moving_stats (serPort);
+                    % turnAngle (serPort, c_TurnSpeed, (-1.33) * p_ang);
+                    % update_moving_stats (serPort);
 
                     % Running a little bit hurry
-                    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+                    % SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+                    SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, -0.20);
                 end
             end
         end
@@ -128,7 +129,6 @@ function assignment_01 (serPort)
 
     BeepRoomba (serPort);
     BeepRoomba (serPort);
-
 
     % If you call RoombaInit inside the control program, this would be a
     % good place to clean up the serial port with...
@@ -164,19 +164,27 @@ function init_global ()
     global g_total_angle;
 
     % constants
-    c_SimMode           = false;
+    c_SimMode           = true;
     c_LoopInteval       = 0.001;
     c_FastFwdVel        = 0.05;
-    c_SlowFwdVel        = 0.025;
+
+    if c_SimMode
+        c_SlowFwdVel    = 0.1;
+        c_TurnSpeed     = 0.1;
+    else
+        c_SlowFwdVel    = 0.025;
+        c_TurnSpeed     = 0.025;
+    end
+
     c_AfterBumpFwdVel   = 0.075;
     c_VerySlowFwdVel    = 0.05;
 
     c_BackOffVel        = 0.025;
     c_BackOffDist       = -0.01;
-    c_TurnSpeed         = 0.025;
+
 
     c_LeftTurnAngle     = 60;
-    c_RightTurnAngle    = 20;
+    c_RightTurnAngle    = 15;
     c_CenterTurnAngle   = 45;
 
     c_MaxToleranceRadius = 0.3; % meters %
