@@ -6,6 +6,7 @@
 function assignment_01 (serPort)
 
     % constants
+    global c_PortName;
     global c_SimMode;
     global c_LoopInteval;
     global c_FastFwdVel;
@@ -19,6 +20,7 @@ function assignment_01 (serPort)
     global c_RightTurnAngle;
     global c_CenterTurnAngle;
     global c_TurnSpeed;
+    global c_TurnRadius;
 
     global g_found_box;
     global g_total_x_dist;
@@ -35,12 +37,11 @@ function assignment_01 (serPort)
     p_bLeft     = false;
     p_ang       = 0;
 
-
     % For the physical Create only, it is assumed that the function call
     % Calling RoombaInit is unnecessary if using the simulator.
 
     if (c_SimMode == false)
-        serPort = RoombaInit_mac ('ElementSerial-ElementSe');
+        serPort = RoombaInit_mac (c_PortName);
     end
 
     % Start robot moving: go straight
@@ -66,15 +67,7 @@ function assignment_01 (serPort)
 
         % Step 1. check if hitting the wall
         % Check for and react to bump sensor readings
-        %[bRight bLeft bCenter wallSensor virtWall CliffLft ...
-        % CliffRgt CliffFrntLft CliffFrntRgt LeftCurrOver ...
-        % RightCurrOver DirtL DirtR ButtonPlay ButtonAdv Dist ...
-        % Angle Volts Current Temp Charge Capacity pCharge]= ...
-        %    AllSensorsReadRoomba (serPort);
-
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
-        wallSensor = WallSensorReadRoomba (serPort);
-
         bumped = bRight | bCenter | bLeft;
 
         % If obstacle was hit reset distance and angle recorders
@@ -92,13 +85,16 @@ function assignment_01 (serPort)
             g_found_box = true;
 
             % remember the last angle we turn
-            p_ang = bumpReact (serPort, wallSensor, bRight, bCenter, bLeft);
+            p_ang = bumpReact (serPort, bRight, bCenter, bLeft);
 
             % turning is done, let the robot go straight.
             SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
         else
-
             if (g_found_box)
+
+                % Optimization: read as needed
+                wallSensor = WallSensorReadRoomba (serPort);
+
                 if (wallSensor)
                     display ('wall sensor activated - go straight');
 
@@ -106,13 +102,14 @@ function assignment_01 (serPort)
                     BeepRoomba (serPort);
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
+                    display ('Ooops - finding the wall');
                     % need to find the wall again
                     % turnAngle (serPort, c_TurnSpeed, (-1.33) * p_ang);
                     % update_moving_stats (serPort);
 
                     % Running a little bit hurry
                     % SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-                    SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, -0.20);
+                    SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, c_TurnRadius);
                 end
             end
         end
@@ -135,7 +132,7 @@ function assignment_01 (serPort)
     if c_SimMode == false
         fclose (serPort);
         delete (serPort);
-        clear  ('ElementSerial-ElementSe');
+        clear  (c_PortName);
     end
     % Don't use these if you call RoombaInit prior to the control program
 end
@@ -145,6 +142,7 @@ function init_global ()
 
     % constants
     global c_SimMode;
+    global c_PortName;
     global c_LoopInteval;
     global c_FastFwdVel;
     global c_SlowFwdVel;
@@ -152,10 +150,12 @@ function init_global ()
     global c_BackOffVel;
     global c_BackOffDist; % meters %
     global c_TurnSpeed;
+    global c_TurnRadius;
     global c_LeftTurnAngle;
     global c_RightTurnAngle;
     global c_CenterTurnAngle;
     global c_MaxToleranceRadius;
+
 
     global g_found_box;
     global g_total_dist;
@@ -165,15 +165,18 @@ function init_global ()
 
     % constants
     c_SimMode           = true;
-    c_LoopInteval       = 0.001;
     c_FastFwdVel        = 0.05;
+    c_TurnRadius        = -0.20;
 
     if c_SimMode
         c_SlowFwdVel    = 0.1;
         c_TurnSpeed     = 0.1;
+        c_LoopInteval   = 2.0;
     else
+        c_PortName      = 'ElementSerial-ElementSe';
         c_SlowFwdVel    = 0.025;
         c_TurnSpeed     = 0.025;
+        c_LoopInteval   = 0.001;
     end
 
     c_AfterBumpFwdVel   = 0.075;
@@ -181,7 +184,6 @@ function init_global ()
 
     c_BackOffVel        = 0.025;
     c_BackOffDist       = -0.01;
-
 
     c_LeftTurnAngle     = 60;
     c_RightTurnAngle    = 15;
@@ -198,7 +200,7 @@ function init_global ()
 end
 
 % init all global variables
-function t_ang= bumpReact (serPort, wall, right, center, left)
+function t_ang= bumpReact (serPort, right, center, left)
 
     % constants
     global c_BackOffVel;
