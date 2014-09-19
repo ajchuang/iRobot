@@ -56,10 +56,10 @@ function assignment_01 (serPort)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % TESTING FUNC : AUTO-BUMPING TESTING FUNCTION                             %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % if not simulator mode, we can try to use wait command (test right and left!)
-    if (c_SimMode == false && c_TestingOn)
+    if (c_SimMode == false)
         % hit the wall and stop
         waitBump (serPort);
+        BeepRoomba (serPort);
         SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -85,7 +85,13 @@ function assignment_01 (serPort)
         % Step 1. check if hitting the wall
         % Check for and react to bump sensor readings
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
-        bumped = bRight | bCenter | bLeft;
+
+        if (isnan (bRight) || isnan (bCenter) || isnan (bLeft))
+            display ('So bad - I dont know whats that');
+            continue;
+        else
+            bumped = bRight | bCenter | bLeft;
+        end
 
         % If obstacle was hit reset distance and angle recorders
         if (bumped)
@@ -112,20 +118,17 @@ function assignment_01 (serPort)
                 % Optimization: read as needed
                 wallSensor = WallSensorReadRoomba (serPort);
 
-                if (wallSensor)
-                    display ('wall sensor activated - go straight');
+                if (isnan (wallSensor))
+                    display ('!!! Bad COM - retrying !!!');
+                    continue;
+                elseif (wallSensor)
+                    display ('wall sensor activated');
 
                     % a minor optimization using Wall Sensor
                     BeepRoomba (serPort);
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
-                    display ('Ooops - finding the wall');
-                    % need to find the wall again
-                    % turnAngle (serPort, c_TurnSpeed, (-1.33) * p_ang);
-                    % update_moving_stats (serPort);
-
-                    % Running a little bit hurry
-                    % SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+                    display ('doing differntial turning.');
                     SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, c_TurnRadius);
                 end
             end
@@ -139,6 +142,7 @@ function assignment_01 (serPort)
     finalRad = 0.0;
 
     % Stop robot motion
+    turnAngle (serPort, c_TurnSpeed, 360);
     SetFwdVelAngVelCreate (serPort, 0, 0);
 
     BeepRoomba (serPort);
@@ -149,7 +153,7 @@ function assignment_01 (serPort)
     if c_SimMode == false
         fclose (serPort);
         delete (serPort);
-        clear  (c_PortName);
+        clear  serPort;
     end
     % Don't use these if you call RoombaInit prior to the control program
 end
@@ -175,7 +179,6 @@ function init_global ()
     global c_CenterTurnAngle;
     global c_MaxToleranceRadius;
 
-
     global g_found_box;
     global g_total_dist;
     global g_total_x_dist;
@@ -183,7 +186,9 @@ function init_global ()
     global g_total_angle;
 
     % constants
-    c_SimMode           = true;
+    c_SimMode           = false;
+    c_MacBook           = true;
+
     c_FastFwdVel        = 0.05;
     c_TurnRadius        = -0.20;
 
@@ -192,10 +197,15 @@ function init_global ()
         c_TurnSpeed     = 0.1;
         c_LoopInteval   = 2.0;
     else
-        % machine dependent params
-        c_PortName      = 'ElementSerial-ElementSe';
-        c_MacBook       = true;
-        c_TestingOn     = true;
+        if c_MacBook
+            % machine dependent params
+            c_PortName      = 'ElementSerial-ElementSe';
+            c_TestingOn     = true;
+        else
+            % machine dependent params
+            c_PortName      = 4;
+            c_TestingOn     = true;
+        end
 
         c_SlowFwdVel    = 0.025;
         c_TurnSpeed     = 0.025;
@@ -267,8 +277,15 @@ function update_moving_stats (serPort)
     global g_total_dist;
 
     dist = DistanceSensorRoomba (serPort);
+    angle = AngleSensorRoomba (serPort);
+
+    if (isnan (dist) | isnan (angle))
+        display ('!!! Bad Comm !!!');
+        return;
+    end
+
     g_total_dist = g_total_dist + dist;
-    g_total_angle = g_total_angle + AngleSensorRoomba (serPort);
+    g_total_angle = g_total_angle + angle;
     g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
     g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
 end
@@ -293,6 +310,7 @@ function isDone= checkMovingStats ()
     end
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % @lfred: a small trick to stop the robot right after the wall is hit
 function waitBump (serPort)
     try
