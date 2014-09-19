@@ -6,7 +6,10 @@
 function assignment_01 (serPort)
 
     % constants
+    global c_MacBook;
     global c_PortName;
+    global c_TestingOn;
+
     global c_SimMode;
     global c_LoopInteval;
     global c_FastFwdVel;
@@ -39,13 +42,27 @@ function assignment_01 (serPort)
 
     % For the physical Create only, it is assumed that the function call
     % Calling RoombaInit is unnecessary if using the simulator.
-
     if (c_SimMode == false)
-        serPort = RoombaInit_mac (c_PortName);
+        if (c_MacBook)
+            serPort = RoombaInit_mac (c_PortName);
+        else
+            serPort = RoombaInit (c_PortName);
+        end
     end
 
     % Start robot moving: go straight
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % TESTING FUNC : AUTO-BUMPING TESTING FUNCTION                             %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % if not simulator mode, we can try to use wait command (test right and left!)
+    if (c_SimMode == false && c_TestingOn)
+        % hit the wall and stop
+        waitBump (serPort);
+        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Enter main loop: control cycle is about 2.3 (sec)
     while (true)
@@ -142,6 +159,8 @@ function init_global ()
 
     % constants
     global c_SimMode;
+    global c_MacBook;
+    global c_TestingOn;
     global c_PortName;
     global c_LoopInteval;
     global c_FastFwdVel;
@@ -173,7 +192,11 @@ function init_global ()
         c_TurnSpeed     = 0.1;
         c_LoopInteval   = 2.0;
     else
+        % machine dependent params
         c_PortName      = 'ElementSerial-ElementSe';
+        c_MacBook       = true;
+        c_TestingOn     = true;
+
         c_SlowFwdVel    = 0.025;
         c_TurnSpeed     = 0.025;
         c_LoopInteval   = 0.001;
@@ -268,4 +291,23 @@ function isDone= checkMovingStats ()
     else
         isDone = false;
     end
+end
+
+% @lfred: a small trick to stop the robot right after the wall is hit
+function waitBump (serPort)
+    try
+        set (serPort,'timeout',.01);
+
+        %Flush buffer
+        N = serPort.BytesAvailable();
+
+        while (N ~= 0)
+            fread (serPort, N);
+            N = serPort.BytesAvailable ();
+        end
+    catch
+    end
+
+    %% Get (142) Wall Reading(8) data fields
+    fwrite (serPort, [158 5]);
 end
