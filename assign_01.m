@@ -69,7 +69,6 @@ function assignment_01 (serPort)
 
         % turn off the Roomba lights
         SetLEDsRoomba (serPort, 0, 0, 1);
-        BeepRoomba (serPort);
 
         % step 0: update last readings
         if (g_found_box)
@@ -201,13 +200,14 @@ function init_global ()
             % machine dependent params
             c_PortName      = 'ElementSerial-ElementSe';
             c_TestingOn     = true;
+            c_SlowFwdVel    = 0.025;
         else
             % machine dependent params
             c_PortName      = 4;
             c_TestingOn     = true;
+            c_SlowFwdVel    = 0.025;
         end
 
-        c_SlowFwdVel    = 0.025;
         c_TurnSpeed     = 0.025;
         c_LoopInteval   = 0.001;
     end
