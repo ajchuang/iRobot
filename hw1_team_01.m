@@ -201,15 +201,16 @@ function init_global ()
             c_PortName      = 'ElementSerial-ElementSe';
             c_TestingOn     = true;
             c_SlowFwdVel    = 0.025;
+            c_TurnSpeed     = 0.025;
+            c_LoopInteval   = 0.001;
         else
             % machine dependent params
             c_PortName      = 4;
             c_TestingOn     = true;
-            c_SlowFwdVel    = 0.025;
+            c_SlowFwdVel    = 0.05;
+            c_TurnSpeed     = 0.05;
+            c_LoopInteval   = 0.1;
         end
-
-        c_TurnSpeed     = 0.025;
-        c_LoopInteval   = 0.001;
     end
 
     c_AfterBumpFwdVel   = 0.075;
