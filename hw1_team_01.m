@@ -1,9 +1,19 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% COMS W4733 Computational Aspects of Robotics 2014
+%
+% Homework 1
+%
+% Team number: 1
+% Team leader: Jen-Chieh Huang (jh3478)
+% Team members: Sze wun wong (sw2955)
+%               Duo Chen (dc3026)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Input:
 % serPort - Serial port object, used for communicating over bluetooth
 %
 % Output:
 % finalRad - Double, final turning radius of the Create (m)
-function assignment_01 (serPort)
+function hw1_team_01 (serPort)
 
     % constants
     global c_MacBook;
