@@ -194,7 +194,7 @@ function init_global ()
     global g_total_angle;
 
     % constants
-    c_SimMode           = true;
+    c_SimMode           = false;
     c_MacBook           = true;
 
     c_FastFwdVel        = 0.05;
