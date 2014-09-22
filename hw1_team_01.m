@@ -13,7 +13,7 @@
 %
 % Output:
 % finalRad - Double, final turning radius of the Create (m)
-function hw1_team_01 (serPort)
+function finalRad= hw1_team_01 (serPort)
 
     % constants
     global c_MacBook;
@@ -147,9 +147,6 @@ function hw1_team_01 (serPort)
         pause (c_LoopInteval);
     end
 
-    % Specify output parameter
-    finalRad = 0.0;
-
     % Stop robot motion
     turnAngle (serPort, c_TurnSpeed, 360);
     SetFwdVelAngVelCreate (serPort, 0, 0);
@@ -164,7 +161,9 @@ function hw1_team_01 (serPort)
         delete (serPort);
         clear  serPort;
     end
-    % Don't use these if you call RoombaInit prior to the control program
+
+    % Specify output parameter
+    finalRad = g_total_angle;
 end
 
 % init all global variables
@@ -195,7 +194,7 @@ function init_global ()
     global g_total_angle;
 
     % constants
-    c_SimMode           = false;
+    c_SimMode           = true;
     c_MacBook           = true;
 
     c_FastFwdVel        = 0.05;
