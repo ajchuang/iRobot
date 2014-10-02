@@ -1,19 +1,25 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % COMS W4733 Computational Aspects of Robotics 2014
 %
-% Homework 1
+% Homework 2
 %
 % Team number: 1
 % Team leader: Jen-Chieh Huang (jh3478)
 % Team members: Sze wun wong (sw2955)
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Input:
-% serPort - Serial port object, used for communicating over bluetooth
+%   Input:
+%       serPort - Serial port object, used for communicating over bluetooth
 %
-% Output:
-% finalRad - Double, final turning radius of the Create (m)
-function finalRad= hw1_team_01 (serPort)
+%   Output:
+%       finalRad - Double, final turning radius of the Create (m)
+%   
+%   Thoughts:
+%       States: ALONG_THE_LINE
+%               CIRCUMVENT
+%               COMPLETE
+%  
+function finalRad= hw2_team_01 (serPort)
 
     % constants
     global c_MacBook;
@@ -81,13 +87,35 @@ function finalRad= hw1_team_01 (serPort)
         SetLEDsRoomba (serPort, 0, 0, 1);
 
         % step 0: update last readings
-        if (g_found_box)
-            update_moving_stats (serPort);
+        update_moving_stats (serPort);
 
-            % check if mission completed
-            if (checkMovingStats ())
-                display ('Found the starting point - Stop!')
-                break;
+        % check if mission completed
+        if (checkMovingStats ())
+            display ('Found the starting point - Stop!')
+            break;
+        end
+        
+        % check if the state changes
+        if (g_found_box == true && is_mline () == true)
+            % back to m_line again -
+            
+            d = sqrt ((g_total_x_dist - g_contact_x_dist)^2 + (g_total_y_dist - g_contact_y_dist)^2);
+            if (d >= 0.20 && abs(g_total_y_dist) < 0.1)
+                display ('Leaving the box');
+                
+                g_found_box = false;
+                g_contact_x_dist = 0.0;
+                g_contact_y_dist = 0.0;
+                
+                % stop and turn
+                turnDeg = g_total_angle * (-1) * 180.0 / pi;
+                SetFwdVelAngVelCreate (serPort, 0.0, 0);
+                turnAngle (serPort, c_TurnSpeed, turnDeg);
+                update_moving_stats (serPort);
+                
+                % keep going
+                SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0);
+                continue;
             end
         end
 
@@ -111,6 +139,9 @@ function finalRad= hw1_team_01 (serPort)
                 % reset moving stats
                 DistanceSensorRoomba (serPort);
                 AngleSensorRoomba (serPort);
+                
+                g_contact_x_dist    = g_total_x_dist;
+                g_contact_y_dist    = g_total_y_dist;
             end
 
             % set the fox is found
@@ -138,6 +169,8 @@ function finalRad= hw1_team_01 (serPort)
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
                     display ('doing differntial turning.');
+                    %SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+                    %turnAngle (serPort, c_TurnSpeed, 15);
                     SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, c_TurnRadius);
                 end
             end
@@ -192,18 +225,20 @@ function init_global ()
     global g_total_x_dist;
     global g_total_y_dist;
     global g_total_angle;
+    global g_contact_x_dist;
+    global g_contact_y_dist;
 
     % constants
-    c_SimMode           = false;
+    c_SimMode           = true;
     c_MacBook           = true;
 
     c_FastFwdVel        = 0.05;
     c_TurnRadius        = -0.20;
 
     if c_SimMode
-        c_SlowFwdVel    = 0.1;
+        c_SlowFwdVel    = 0.2;
         c_TurnSpeed     = 0.1;
-        c_LoopInteval   = 2.0;
+        c_LoopInteval   = 0.01;
     else
         if c_MacBook
             % machine dependent params
@@ -240,6 +275,8 @@ function init_global ()
     g_total_x_dist      = 0.0;
     g_total_y_dist      = 0.0;
     g_total_angle       = 0.0;
+    g_contact_x_dist    = 0.0;
+    g_contact_y_dist    = 0.0;
 end
 
 % init all global variables
@@ -278,6 +315,20 @@ function t_ang= bumpReact (serPort, right, center, left)
     t_ang = ang;
 end
 
+function b_is_mline= is_mline ()
+    global g_total_y_dist;
+    global c_MaxToleranceRadius;
+    
+    b_is_mline = false;
+    
+    if (abs (g_total_y_dist) < 0.05)
+        display ('m_line is found');
+        b_is_mline = true;
+        return;
+    end
+    
+end
+
 % This is buggy -
 function update_moving_stats (serPort)
 
@@ -288,7 +339,7 @@ function update_moving_stats (serPort)
 
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
-
+    
     if (isnan (dist) | isnan (angle))
         display ('!!! Bad Comm !!!');
         return;
@@ -298,6 +349,7 @@ function update_moving_stats (serPort)
     g_total_angle = g_total_angle + angle;
     g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
     g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
+
 end
 
 function isDone= checkMovingStats ()
@@ -308,12 +360,12 @@ function isDone= checkMovingStats ()
     global g_total_dist;
     global c_MaxToleranceRadius;
 
-    radius = sqrt (g_total_x_dist ^ 2 + g_total_y_dist ^ 2);
+    radius = sqrt ((g_total_x_dist - 5.0) ^ 2 + g_total_y_dist ^ 2);
 
     display (sprintf ('current radius = %f', radius));
-    display (sprintf ('current g_total_dist = %f', g_total_dist));
+    display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_dist, g_total_y_dist));
 
-    if (g_total_dist > 0.5 && radius < c_MaxToleranceRadius)
+    if (radius < c_MaxToleranceRadius)
         isDone = true;
     else
         isDone = false;

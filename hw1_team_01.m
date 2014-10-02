@@ -194,16 +194,16 @@ function init_global ()
     global g_total_angle;
 
     % constants
-    c_SimMode           = false;
+    c_SimMode           = true;
     c_MacBook           = true;
 
     c_FastFwdVel        = 0.05;
     c_TurnRadius        = -0.20;
 
     if c_SimMode
-        c_SlowFwdVel    = 0.1;
-        c_TurnSpeed     = 0.1;
-        c_LoopInteval   = 2.0;
+        c_SlowFwdVel    = 0.25;
+        c_TurnSpeed     = 0.2;
+        c_LoopInteval   = 0.01;
     else
         if c_MacBook
             % machine dependent params
