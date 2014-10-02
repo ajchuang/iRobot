@@ -55,6 +55,7 @@ function finalRad= hw2_team_01 (serPort)
     p_bCenter   = false;
     p_bLeft     = false;
     p_ang       = 0;
+    fastWallOp  = false;
 
     % For the physical Create only, it is assumed that the function call
     % Calling RoombaInit is unnecessary if using the simulator.
@@ -134,6 +135,7 @@ function finalRad= hw2_team_01 (serPort)
         if (bumped)
 
             display ('bump into the wall');
+            fastWallOp = false;
 
             if (g_found_box == false)
                 % reset moving stats
@@ -163,15 +165,18 @@ function finalRad= hw2_team_01 (serPort)
                     continue;
                 elseif (wallSensor)
                     display ('wall sensor activated');
+                    fastWallOp = false;
 
                     % a minor optimization using Wall Sensor
                     BeepRoomba (serPort);
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
                     display ('doing differntial turning.');
-                    %SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-                    %turnAngle (serPort, c_TurnSpeed, 15);
-                    SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, c_TurnRadius);
+                    
+                    find_wall (serPort);
+                    
+                    %display ('Doing diff turn step 4');
+                    %SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, c_TurnRadius);
                 end
             end
         end
@@ -197,6 +202,41 @@ function finalRad= hw2_team_01 (serPort)
 
     % Specify output parameter
     finalRad = g_total_angle;
+end
+
+% a new state: trying to find the wall again.
+function find_wall (serPort)
+    
+    global c_SlowFwdVel;
+    global c_TurnRadius;
+    global c_LoopInteval;
+    
+    display ('doing differntial turning.');
+                    
+    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+    travelDist (serPort, c_SlowFwdVel, 0.05);
+    
+    while (true)
+        update_moving_stats (serPort);
+        SetFwdVelRadiusRoomba (serPort, c_SlowFwdVel, c_TurnRadius);
+    
+        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+
+        if (isnan (bRight) || isnan (bCenter) || isnan (bLeft))
+            display ('So bad - I dont know whats that');
+            continue;
+        else
+            bumped = bRight | bCenter | bLeft;
+        end
+
+        % If obstacle was hit reset distance and angle recorders
+        if (bumped)
+            display ('The wall is found !');
+            return;
+        end
+        
+        pause (c_LoopInteval);
+    end
 end
 
 % init all global variables
@@ -361,6 +401,7 @@ function isDone= checkMovingStats ()
     global g_total_angle;
     global g_total_dist;
     global c_MaxToleranceRadius;
+    global g_goal_dist;
 
     radius = sqrt ((g_total_x_dist - g_goal_dist) ^ 2 + g_total_y_dist ^ 2);
 
