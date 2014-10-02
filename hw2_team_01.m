@@ -95,7 +95,7 @@ function finalRad= hw2_team_01 (serPort)
             break;
         end
         
-        % check if the state changes
+        % check if the state changes --> hard coded, stupid function.
         if (g_found_box == true && is_mline () == true)
             % back to m_line again -
             
@@ -220,6 +220,7 @@ function init_global ()
     global c_CenterTurnAngle;
     global c_MaxToleranceRadius;
 
+    global g_goal_dist;
     global g_found_box;
     global g_total_dist;
     global g_total_x_dist;
@@ -270,6 +271,7 @@ function init_global ()
     c_MaxToleranceRadius = 0.3; % meters %
 
     % The flag is used to indicate if the obstable is seen.
+    g_goal_dist         = 3.0;
     g_found_box         = false;
     g_total_dist        = 0;
     g_total_x_dist      = 0.0;
@@ -360,7 +362,7 @@ function isDone= checkMovingStats ()
     global g_total_dist;
     global c_MaxToleranceRadius;
 
-    radius = sqrt ((g_total_x_dist - 5.0) ^ 2 + g_total_y_dist ^ 2);
+    radius = sqrt ((g_total_x_dist - g_goal_dist) ^ 2 + g_total_y_dist ^ 2);
 
     display (sprintf ('current radius = %f', radius));
     display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_dist, g_total_y_dist));
