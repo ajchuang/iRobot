@@ -146,7 +146,6 @@ function finalRad= hw2_team_01 (serPort)
                     display ('wall sensor activated');
 
                     % a minor optimization using Wall Sensor
-                    BeepRoomba (serPort);
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
                     find_wall (serPort);
@@ -185,8 +184,8 @@ function neverEnd= checkExitObstacle (serPort)
     global g_found_box;
     global c_MaxToleranceRadius;
     global g_total_x_dist;
-    global g_contact_x_dist;
     global g_total_y_dist;
+    global g_contact_x_dist;
     global g_contact_y_dist;
     global g_total_angle;
     global c_TurnSpeed;
@@ -207,10 +206,6 @@ function neverEnd= checkExitObstacle (serPort)
             return;
         end
         
-        % debug
-        dist_after_bumping ()
-        closer_to_the_goal ()
-        
         if (dist_after_bumping () > 0.20 && closer_to_the_goal ())
             display ('Leaving the box');
             
@@ -219,7 +214,12 @@ function neverEnd= checkExitObstacle (serPort)
             reset_bumping_moving_status ();
             
             % stop and turn
-            turnDeg = g_total_angle * (-1) * 180.0 / pi;
+            if (g_total_x_dist > g_goal_dist)
+                turnDeg = g_total_angle * 180.0 / pi;
+            else
+                turnDeg = g_total_angle * (-1) * 180.0 / pi;
+            end
+            
             SetFwdVelAngVelCreate (serPort, 0.0, 0);
             turnAngle (serPort, c_TurnSpeed, turnDeg);
             update_moving_stats (serPort);
@@ -325,10 +325,12 @@ function init_global ()
     global g_contact_x_dist;
     global g_contact_y_dist;
 
-    % constants
+    % test-related constants
     c_SimMode           = true;
     c_MacBook           = true;
-
+    g_goal_dist         = 4.0;
+    
+    % environment-related constants
     c_FastFwdVel        = 0.05;
     c_TurnRadius        = -0.20;
 
@@ -367,7 +369,6 @@ function init_global ()
     c_MaxToleranceRadius = 0.15; % meters %
 
     % The flag is used to indicate if the obstable is seen.
-    g_goal_dist         = 3.0;
     g_found_box         = false;
     g_total_dist        = 0;
     g_total_x_dist      = 0.0;
@@ -438,10 +439,13 @@ function isTrue= closer_to_the_goal ()
     
     dist_new = abs (g_total_x_dist - g_goal_dist);
     dist_old = abs (g_contact_x_dist - g_goal_dist);
+    display (sprintf ('closer_to_the_goal: new = %f, old = %f', dist_new, dist_old));
     
     if (dist_new < dist_old)
+        display ('closer to goal');
         isTrue = true;
     else
+        display (sprintf ('not closer to goal'));
         isTrue = false;
     end
 end
