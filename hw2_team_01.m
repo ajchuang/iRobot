@@ -91,34 +91,16 @@ function finalRad= hw2_team_01 (serPort)
 
         % check if mission completed
         if (checkMovingStats ())
-            display ('Found the starting point - Stop!')
+            display ('Found the end point - Stop!')
             break;
         end
         
-        % check if the state changes --> hard coded, stupid function.
-        if (g_found_box == true && is_mline () == true)
-            % back to m_line again -
-            
-            d = sqrt ((g_total_x_dist - g_contact_x_dist)^2 + (g_total_y_dist - g_contact_y_dist)^2);
-            if (d >= 0.20 && abs(g_total_y_dist) < 0.1)
-                display ('Leaving the box');
-                
-                g_found_box = false;
-                g_contact_x_dist = 0.0;
-                g_contact_y_dist = 0.0;
-                
-                % stop and turn
-                turnDeg = g_total_angle * (-1) * 180.0 / pi;
-                SetFwdVelAngVelCreate (serPort, 0.0, 0);
-                turnAngle (serPort, c_TurnSpeed, turnDeg);
-                update_moving_stats (serPort);
-                
-                % keep going
-                SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0);
-                continue;
-            end
+        % check if we should leave the obstacle.
+        if (checkExitObstacle (serPort) == true)
+            display ('!!! unable to reach the goal - sorry !!!')
+            break;
         end
-
+        
         % Step 1. check if hitting the wall
         % Check for and react to bump sensor readings
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
@@ -140,12 +122,11 @@ function finalRad= hw2_team_01 (serPort)
                 DistanceSensorRoomba (serPort);
                 AngleSensorRoomba (serPort);
                 
-                g_contact_x_dist    = g_total_x_dist;
-                g_contact_y_dist    = g_total_y_dist;
+                % set the fox is found
+                g_found_box = true;
+                
+                reset_bumping_moving_status ();
             end
-
-            % set the fox is found
-            g_found_box = true;
 
             % remember the last angle we turn
             p_ang = bumpReact (serPort, bRight, bCenter, bLeft);
@@ -197,6 +178,53 @@ function finalRad= hw2_team_01 (serPort)
     finalRad = g_total_angle;
 end
 
+% TODO
+% there is a hard-coded constant
+% Corner case: need to be handled.
+function neverEnd= checkExitObstacle (serPort)
+
+    global g_found_box;
+    global c_MaxToleranceRadius;
+    global g_total_x_dist;
+    global g_contact_x_dist;
+    global g_total_y_dist;
+    global g_contact_y_dist;
+    global g_total_angle;
+    global c_TurnSpeed;
+    global c_SlowFwdVel;
+    global g_goal_dist;
+
+    % default value of neverEnd is false
+    neverEnd = false;
+
+    % check if the state changes --> hard coded, stupid function.
+    % back to m_line again -
+    % check if the state changes --> hard coded, stupid function.
+    if (g_found_box == true && is_mline () == true)
+        % back to m_line again -
+        
+        d = sqrt ((g_total_x_dist - g_contact_x_dist)^2 + (g_total_y_dist - g_contact_y_dist)^2);
+        
+        if (d >= 0.20 && abs(g_total_y_dist) < 0.1)
+            display ('Leaving the box');
+            
+            % reset bumping memories
+            g_found_box = false;
+            reset_bumping_moving_status ();
+            
+            % stop and turn
+            turnDeg = g_total_angle * (-1) * 180.0 / pi;
+            SetFwdVelAngVelCreate (serPort, 0.0, 0);
+            turnAngle (serPort, c_TurnSpeed, turnDeg);
+            update_moving_stats (serPort);
+            
+            % keep going
+            SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0);
+            return;
+        end
+    end 
+end
+
 % a new state: trying to find the wall again.
 function find_wall (serPort)
     
@@ -207,7 +235,7 @@ function find_wall (serPort)
     
     display ('doing differntial turning.');
                     
-    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+    %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
     travelDist (serPort, c_SlowFwdVel, 0.05);
     turnAngle (serPort, c_TurnSpeed, 5);
     update_moving_stats (serPort);
@@ -285,7 +313,7 @@ function init_global ()
 
     if c_SimMode
         c_SlowFwdVel    = 0.3;
-        c_TurnSpeed     = 0.25;
+        c_TurnSpeed     = 0.2;
         c_LoopInteval   = 0.01;
     else
         if c_MacBook
@@ -315,7 +343,7 @@ function init_global ()
     c_RightTurnAngle    = 15;
     c_CenterTurnAngle   = 45;
 
-    c_MaxToleranceRadius = 0.3; % meters %
+    c_MaxToleranceRadius = 0.15; % meters %
 
     % The flag is used to indicate if the obstable is seen.
     g_goal_dist         = 3.0;
@@ -364,6 +392,8 @@ function t_ang= bumpReact (serPort, right, center, left)
     t_ang = ang;
 end
 
+% TODO
+% there is a hard-coded constant
 function b_is_mline= is_mline ()
     global g_total_y_dist;
     global c_MaxToleranceRadius;
@@ -378,6 +408,23 @@ function b_is_mline= is_mline ()
     
 end
 
+function reset_bumping_moving_status ()
+
+    global g_total_x_dist_after_bump;
+    global g_total_y_dist_after_bump;
+    global g_contact_x_dist;
+    global g_contact_y_dist;
+    global g_contact_x;
+    global g_contact_y;
+    
+    g_total_x_dist_after_bump = 0.0;
+    g_total_y_dist_after_bump = 0.0;
+    
+    % remember the current bump point.
+    g_contact_x_dist    = g_total_x_dist;
+    g_contact_y_dist    = g_total_y_dist;
+end
+
 % This is buggy -
 function update_moving_stats (serPort)
 
@@ -385,6 +432,8 @@ function update_moving_stats (serPort)
     global g_total_y_dist;
     global g_total_angle;
     global g_total_dist;
+    global g_total_x_dist_after_bump;
+    global g_total_y_dist_after_bump;
 
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
@@ -398,7 +447,10 @@ function update_moving_stats (serPort)
     g_total_angle = g_total_angle + angle;
     g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
     g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
-
+    
+    g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
+    g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
+     
 end
 
 function isDone= checkMovingStats ()
