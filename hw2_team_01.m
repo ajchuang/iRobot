@@ -149,7 +149,6 @@ function finalRad= hw2_team_01 (serPort)
                     BeepRoomba (serPort);
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
-                    display ('doing differntial turning.');
                     find_wall (serPort);
                 end
             end
@@ -203,9 +202,16 @@ function neverEnd= checkExitObstacle (serPort)
     if (g_found_box == true && is_mline () == true)
         % back to m_line again -
         
-        d = sqrt ((g_total_x_dist - g_contact_x_dist)^2 + (g_total_y_dist - g_contact_y_dist)^2);
+        if (hit_bumping_pt ())
+            neverEnd = true;
+            return;
+        end
         
-        if (d >= 0.20 && abs(g_total_y_dist) < 0.1)
+        % debug
+        dist_after_bumping ()
+        closer_to_the_goal ()
+        
+        if (dist_after_bumping () > 0.20 && closer_to_the_goal ())
             display ('Leaving the box');
             
             % reset bumping memories
@@ -233,7 +239,7 @@ function find_wall (serPort)
     global c_LoopInteval;
     global c_TurnSpeed;
     
-    display ('doing differntial turning.');
+    display ('enter - find_wall');
                     
     %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
     travelDist (serPort, c_SlowFwdVel, 0.05);
@@ -245,7 +251,22 @@ function find_wall (serPort)
     SetFwdVelRadiusRoomba (serPort, c_TurnSpeed, c_TurnRadius);
     
     while (true)
+    
         update_moving_stats (serPort);
+        
+        % check if mission completed
+        if (checkMovingStats ())
+            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            display ('leaving - find_wall: end point found');
+            return;
+        end
+        
+        % check if we should leave the obstacle.
+        if (checkExitObstacle (serPort) == true)
+            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            display ('leaving - find_wall: unable to reach the goal');
+            return;
+        end
         
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
         wallSensor = WallSensorReadRoomba (serPort);
@@ -259,12 +280,12 @@ function find_wall (serPort)
 
         % If obstacle was hit reset distance and angle recorders
         if (bumped)
-            display ('The wall is found ! - bump sensor');
+            display ('leaving - find_wall - bump sensor');
             return;
         else 
             if (wallSensor)
                 % wall sensor activated: go straight
-                display ('The wall is found ! - wall sensor');
+                display ('leaving - find_wall - wall sensor');
                 SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 return;
             end
@@ -405,18 +426,66 @@ function b_is_mline= is_mline ()
         b_is_mline = true;
         return;
     end
+end
+
+function isTrue= closer_to_the_goal ()
+
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_contact_x_dist;
+    global g_contact_y_dist;
+    global g_goal_dist;
     
+    dist_new = abs (g_total_x_dist - g_goal_dist);
+    dist_old = abs (g_contact_x_dist - g_goal_dist);
+    
+    if (dist_new < dist_old)
+        isTrue = true;
+    else
+        isTrue = false;
+    end
+end
+
+% check if the bump point is reached 'again'
+function hit= hit_bumping_pt ()
+
+    global g_contact_x_dist;
+    global g_contact_y_dist;
+    global g_total_x_dist_after_bump;
+    global g_total_y_dist_after_bump;
+    
+    if (dist_after_bumping () > 0.2)
+    
+        d = sqrt ((g_total_x_dist_after_bump - g_contact_x_dist)^2 + (g_total_y_dist_after_bump - g_contact_y_dist)^2); 
+    
+        if (d < 0.10)
+            hit = true;
+            return;
+        end
+    end
+    
+    hit = false;
+    return;
+end
+
+% return the 'absolute' distance after bumping.
+function dist= dist_after_bumping ()
+
+    global g_abs_dsit_after_bump;
+    dist = g_abs_dsit_after_bump;
 end
 
 function reset_bumping_moving_status ()
 
-    global g_total_x_dist_after_bump;
-    global g_total_y_dist_after_bump;
     global g_contact_x_dist;
     global g_contact_y_dist;
-    global g_contact_x;
-    global g_contact_y;
+    global g_abs_dsit_after_bump;
+    global g_total_x_dist_after_bump;
+    global g_total_y_dist_after_bump;
+    global g_total_x_dist;
+    global g_total_y_dist;
     
+    g_abs_dsit_after_bump = 0;
     g_total_x_dist_after_bump = 0.0;
     g_total_y_dist_after_bump = 0.0;
     
@@ -434,6 +503,7 @@ function update_moving_stats (serPort)
     global g_total_dist;
     global g_total_x_dist_after_bump;
     global g_total_y_dist_after_bump;
+    global g_abs_dsit_after_bump;
 
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
@@ -450,6 +520,8 @@ function update_moving_stats (serPort)
     
     g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
     g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
+    
+    g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
      
 end
 
