@@ -73,10 +73,10 @@ function finalRad= hw2_team_01 (serPort)
     % TESTING FUNC : AUTO-BUMPING TESTING FUNCTION                             %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if (c_SimMode == false)
-        % hit the wall and stop
-        waitBump (serPort);
-        BeepRoomba (serPort);
-        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+        % hit the wall and stop - we disable this for HW2
+        %waitBump (serPort);
+        %BeepRoomba (serPort);
+        %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -326,7 +326,7 @@ function init_global ()
     global g_contact_y_dist;
 
     % test-related constants
-    c_SimMode           = true;
+    c_SimMode           = false;
     c_MacBook           = true;
     g_goal_dist         = 4.0;
     
@@ -345,7 +345,7 @@ function init_global ()
             c_TestingOn     = true;
             c_SlowFwdVel    = 0.025;
             c_TurnSpeed     = 0.025;
-            c_LoopInteval   = 0.001;
+            c_LoopInteval   = 0.01;
         else
             % machine dependent params
             c_PortName      = 4;
@@ -512,20 +512,27 @@ function update_moving_stats (serPort)
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
     
-    if (isnan (dist) | isnan (angle))
+    if (isnan (dist) | isnan (angle) | isequal(size(dist), [1 0]) | isequal(size(angle), [1 0]) | isequal(size(dist), [0 1]) | isequal(size(angle), [0 1]))
         display ('!!! Bad Comm !!!');
         return;
     end
+    
+    dist
+    g_total_angle
 
-    g_total_dist = g_total_dist + dist;
-    g_total_angle = g_total_angle + angle;
-    g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
-    g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
+    %try
+        g_total_dist = g_total_dist + dist;
+        g_total_angle = g_total_angle + angle;
     
-    g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
-    g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
+        g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
+        g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
     
-    g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
+        g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
+        g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
+    
+        g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
+    %catch
+    %end
      
 end
 
@@ -538,7 +545,7 @@ function isDone= checkMovingStats ()
     global c_MaxToleranceRadius;
     global g_goal_dist;
 
-    radius = sqrt ((g_total_x_dist - g_goal_dist) ^ 2 + g_total_y_dist ^ 2);
+    radius = sqrt ((g_total_x_dist - g_goal_dist) .^ 2 + g_total_y_dist .^ 2);
 
     display (sprintf ('current radius = %f', radius));
     display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_dist, g_total_y_dist));
