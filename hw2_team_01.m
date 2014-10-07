@@ -14,11 +14,6 @@
 %   Output:
 %       finalRad - Double, final turning radius of the Create (m)
 %   
-%   Thoughts:
-%       States: ALONG_THE_LINE
-%               CIRCUMVENT
-%               COMPLETE
-%  
 function finalRad= hw2_team_01 (serPort)
 
     % constants
@@ -46,6 +41,9 @@ function finalRad= hw2_team_01 (serPort)
     global g_total_y_dist;
     global g_total_angle;
 
+    figure 
+    xlabel('Position in X-axis (m)');
+    ylabel('Position in Y-axis (m)');
     init_global ();
 
     % loop variables
@@ -156,6 +154,9 @@ function finalRad= hw2_team_01 (serPort)
         % Briefly pause to avoid continuous loop iteration
         pause (c_LoopInteval);
     end
+    
+    % final adjustment
+    regression_state (serPort);
 
     % Stop robot motion
     turnAngle (serPort, c_TurnSpeed, 360);
@@ -231,6 +232,40 @@ function neverEnd= checkExitObstacle (serPort)
     end 
 end
 
+% This is used to fine tuning the Y location, as close as possible
+function regression_state (serPort)
+    
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_goal_dist;
+    global g_total_angle;
+    
+    global c_VerySlowFwdVel;
+    global c_TurnSpeed;
+    
+    % re-orient to zero
+    delta_x = g_goal_dist - g_total_x_dist;
+    display (sprintf ('regression_state: x = %f, delta_x = %f', g_total_x_dist, delta_x));
+    turnAngle (serPort, c_TurnSpeed, (-1.0) * g_total_angle);
+    travelDist (serPort, c_VerySlowFwdVel, delta_x);
+    update_moving_stats (serPort);
+
+    % re-orient to 90
+    delta_y = (-1.0) * g_total_y_dist;
+    display (sprintf ('regression_state: y = %f, delta_y = %f', g_total_y_dist, delta_y));
+    
+    if (g_total_y_dist > 0)
+        turnAngle (serPort, c_TurnSpeed, -90.0);
+    else
+        turnAngle (serPort, c_TurnSpeed, 90.0);
+    end
+    
+    travelDist (serPort, c_VerySlowFwdVel, delta_y);
+    update_moving_stats (serPort);
+    
+    display ('leave - regression_state');
+end
+
 % a new state: trying to find the wall again.
 function find_wall (serPort)
     
@@ -242,9 +277,9 @@ function find_wall (serPort)
     display ('enter - find_wall');
                     
     %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-    travelDist (serPort, c_SlowFwdVel, 0.05);
-    turnAngle (serPort, c_TurnSpeed, 5);
-    update_moving_stats (serPort);
+    %travelDist (serPort, c_SlowFwdVel, 0.05);
+    %turnAngle (serPort, c_TurnSpeed, 5);
+    %update_moving_stats (serPort);
     
     % start to turn
     display ('start to turn');
@@ -328,7 +363,7 @@ function init_global ()
     % test-related constants
     c_SimMode           = false;
     c_MacBook           = true;
-    g_goal_dist         = 4.0;
+    g_goal_dist         = 4.0;  % This is golden!
     
     % environment-related constants
     c_FastFwdVel        = 0.05;
@@ -338,14 +373,16 @@ function init_global ()
         c_SlowFwdVel    = 0.3;
         c_TurnSpeed     = 0.2;
         c_LoopInteval   = 0.01;
+        c_VerySlowFwdVel = 0.1;
     else
         if c_MacBook
             % machine dependent params
             c_PortName      = 'ElementSerial-ElementSe';
             c_TestingOn     = true;
-            c_SlowFwdVel    = 0.025;
+            c_SlowFwdVel    = 0.03;
             c_TurnSpeed     = 0.025;
             c_LoopInteval   = 0.01;
+            c_VerySlowFwdVel = 0.025;
         else
             % machine dependent params
             c_PortName      = 4;
@@ -353,11 +390,12 @@ function init_global ()
             c_SlowFwdVel    = 0.05;
             c_TurnSpeed     = 0.05;
             c_LoopInteval   = 0.1;
+            c_VerySlowFwdVel = 0.025;
         end
     end
 
     c_AfterBumpFwdVel   = 0.075;
-    c_VerySlowFwdVel    = 0.05;
+    
 
     c_BackOffVel        = 0.025;
     c_BackOffDist       = -0.01;
@@ -512,27 +550,24 @@ function update_moving_stats (serPort)
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
     
-    if (isnan (dist) | isnan (angle) | isequal(size(dist), [1 0]) | isequal(size(angle), [1 0]) | isequal(size(dist), [0 1]) | isequal(size(angle), [0 1]))
+    if (isnan (dist) | isnan (angle))
         display ('!!! Bad Comm !!!');
         return;
     end
     
-    dist
-    g_total_angle
+    g_total_dist = g_total_dist + dist;
+    g_total_angle = g_total_angle + angle;
 
-    %try
-        g_total_dist = g_total_dist + dist;
-        g_total_angle = g_total_angle + angle;
+    g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
+    g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
+
+    g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
+    g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
+
+    g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
-        g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
-        g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
-    
-        g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
-        g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
-    
-        g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
-    %catch
-    %end
+    plot (g_total_x_dist, g_total_y_dist, 'o');
+    hold on;
      
 end
 
