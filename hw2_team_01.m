@@ -245,13 +245,15 @@ function regression_state (serPort)
     
     % re-orient to zero
     delta_x = g_goal_dist - g_total_x_dist;
+    delta_y = g_total_y_dist;
+    
     display (sprintf ('regression_state: x = %f, delta_x = %f', g_total_x_dist, delta_x));
     turnAngle (serPort, c_TurnSpeed, (-1.0) * g_total_angle);
     travelDist (serPort, c_VerySlowFwdVel, delta_x);
-    update_moving_stats (serPort);
+    %update_moving_stats (serPort);
 
     % re-orient to 90
-    delta_y = (-1.0) * g_total_y_dist;
+    
     display (sprintf ('regression_state: y = %f, delta_y = %f', g_total_y_dist, delta_y));
     
     if (g_total_y_dist > 0)
@@ -276,10 +278,11 @@ function find_wall (serPort)
     
     display ('enter - find_wall');
                     
+    % The new algo is not good for the new obstacles.
     %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-    %travelDist (serPort, c_SlowFwdVel, 0.05);
+    travelDist (serPort, c_SlowFwdVel, 0.05);
     %turnAngle (serPort, c_TurnSpeed, 5);
-    %update_moving_stats (serPort);
+    update_moving_stats (serPort);
     
     % start to turn
     display ('start to turn');
@@ -395,7 +398,6 @@ function init_global ()
     end
 
     c_AfterBumpFwdVel   = 0.075;
-    
 
     c_BackOffVel        = 0.025;
     c_BackOffDist       = -0.01;
