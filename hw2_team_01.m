@@ -171,10 +171,13 @@ function finalRad= hw2_team_01 (serPort)
 end
 
 function init_plotting ()
-    figure; 
-    xlabel('Position in X-axis (m)');
-    ylabel('Position in Y-axis (m)');
-    title('Position of iRobot');
+    
+    global figHandle;
+    
+    figHandle = figure; 
+    xlabel ('Position in X-axis (m)');
+    ylabel ('Position in Y-axis (m)');
+    title  ('Position of iRobot');
 end
 
 % TODO
@@ -375,8 +378,8 @@ function init_global ()
     global g_contact_y_dist;
 
     % test-related constants
-    c_SimMode           = false;
-    c_MacBook           = false;
+    c_SimMode           = true;
+    c_MacBook           = true;
     g_goal_dist         = 4.0;  % This is golden!
     
     % environment-related constants
@@ -583,6 +586,12 @@ function update_moving_stats (serPort)
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
     % do painting.
+    global figHandle;
+    
+    xlabel ('Position in X-axis (m)');
+    ylabel ('Position in Y-axis (m)');
+    title  ('Position of iRobot');
+    figure (figHandle);
     plot (g_total_x_dist, g_total_y_dist, 'x');
     hold on;
 end
