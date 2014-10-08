@@ -65,18 +65,13 @@ function finalRad= hw2_team_01 (serPort)
     end
 
     % Start robot moving: go straight
+    c_SlowFwdVel = c_SlowFwdVel * 1.3;
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % TESTING FUNC : AUTO-BUMPING TESTING FUNCTION                             %
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if (c_SimMode == false)
-        % hit the wall and stop - we disable this for HW2
-        %waitBump (serPort);
-        %BeepRoomba (serPort);
-        %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-    end
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % hit the wall and stop - we disable this for HW2
+    waitBump (serPort);
+    BeepRoomba (serPort);
+    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
 
     % Enter main loop: control cycle is about 2.3 (sec)
     while (true)
@@ -122,6 +117,7 @@ function finalRad= hw2_team_01 (serPort)
                 
                 % set the fox is found
                 g_found_box = true;
+                c_SlowFwdVel = c_SlowFwdVel / 1.3;
                 
                 reset_bumping_moving_status ();
             end
@@ -212,6 +208,7 @@ function neverEnd= checkExitObstacle (serPort)
             
             % reset bumping memories
             g_found_box = false;
+            c_SlowFwdVel = c_SlowFwdVel * 1.3;
             reset_bumping_moving_status ();
             
             % stop and turn
@@ -227,6 +224,7 @@ function neverEnd= checkExitObstacle (serPort)
             
             % keep going
             SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0);
+            % waitBump (serPort);
             return;
         end
     end 
@@ -255,7 +253,6 @@ function regression_state (serPort)
     % re-orient to 90
     
     display (sprintf ('regression_state: y = %f, delta_y = %f', g_total_y_dist, delta_y));
-    
     if (g_total_y_dist > 0)
         turnAngle (serPort, c_TurnSpeed, -90.0);
     else
@@ -280,7 +277,7 @@ function find_wall (serPort)
                     
     % The new algo is not good for the new obstacles.
     %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-    travelDist (serPort, c_SlowFwdVel, 0.05);
+    %travelDist (serPort, c_SlowFwdVel, 0.05);
     %turnAngle (serPort, c_TurnSpeed, 5);
     update_moving_stats (serPort);
     
@@ -364,7 +361,7 @@ function init_global ()
     global g_contact_y_dist;
 
     % test-related constants
-    c_SimMode           = false;
+    c_SimMode           = true;
     c_MacBook           = true;
     g_goal_dist         = 4.0;  % This is golden!
     
@@ -559,16 +556,19 @@ function update_moving_stats (serPort)
     
     g_total_dist = g_total_dist + dist;
     g_total_angle = g_total_angle + angle;
+    
+    temp_x = dist * cos (g_total_angle);
+    temp_y = dist * sin (g_total_angle);
 
-    g_total_x_dist = g_total_x_dist + dist * cos (g_total_angle);
-    g_total_y_dist = g_total_y_dist + dist * sin (g_total_angle);
+    g_total_x_dist = g_total_x_dist + temp_x;
+    g_total_y_dist = g_total_y_dist + temp_y;
 
-    g_total_x_dist_after_bump = g_total_x_dist_after_bump + dist * cos (g_total_angle);
-    g_total_y_dist_after_bump = g_total_y_dist_after_bump + dist * sin (g_total_angle);
+    g_total_x_dist_after_bump = g_total_x_dist_after_bump + temp_x;
+    g_total_y_dist_after_bump = g_total_y_dist_after_bump + temp_y;
 
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
-    plot (g_total_x_dist, g_total_y_dist, 'o');
+    plot (g_total_x_dist, g_total_y_dist, 'x');
     hold on;
      
 end
@@ -597,19 +597,39 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % @lfred: a small trick to stop the robot right after the wall is hit
 function waitBump (serPort)
-    try
-        set (serPort,'timeout',.01);
 
-        %Flush buffer
-        N = serPort.BytesAvailable();
+    global c_SimMode;
 
-        while (N ~= 0)
-            fread (serPort, N);
-            N = serPort.BytesAvailable ();
+    if (c_SimMode)
+        while (true)
+            [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+            
+            if (bRight | bLeft | bCenter)
+                return;
+            end
+                
+            pause (0.01);
         end
-    catch
-    end
+    else
+        try
+            % marked for test
+            %set (serPort,'timeout',.01);
 
-    %% Get (142) Wall Reading(8) data fields
-    fwrite (serPort, [158 5]);
+            %Flush buffer
+            N = serPort.BytesAvailable();
+
+            while (N ~= 0)
+                fread (serPort, N);
+                N = serPort.BytesAvailable ();
+            end
+            
+            %% Get (142) Wall Reading(8) data fields
+            global td;
+            fwrite (serPort, [158 5]);
+            pause (td);
+        catch
+            disp('WARNING:  waitBump function failed.')
+        end
+    end
+    
 end
