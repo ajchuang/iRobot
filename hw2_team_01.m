@@ -41,9 +41,7 @@ function finalRad= hw2_team_01 (serPort)
     global g_total_y_dist;
     global g_total_angle;
 
-    figure 
-    xlabel('Position in X-axis (m)');
-    ylabel('Position in Y-axis (m)');
+    init_plotting ();
     init_global ();
 
     % loop variables
@@ -69,9 +67,9 @@ function finalRad= hw2_team_01 (serPort)
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
 
     % hit the wall and stop - we disable this for HW2
-    waitBump (serPort);
-    BeepRoomba (serPort);
-    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+    %waitBump (serPort);
+    %BeepRoomba (serPort);
+    %SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
 
     % Enter main loop: control cycle is about 2.3 (sec)
     while (true)
@@ -112,10 +110,9 @@ function finalRad= hw2_team_01 (serPort)
 
             if (g_found_box == false)
                 % reset moving stats
-                DistanceSensorRoomba (serPort);
-                AngleSensorRoomba (serPort);
+                update_moving_stats (serPort);
                 
-                % set the fox is found
+                % set when the box is found
                 g_found_box = true;
                 c_SlowFwdVel = c_SlowFwdVel / 1.3;
                 
@@ -171,6 +168,12 @@ function finalRad= hw2_team_01 (serPort)
 
     % Specify output parameter
     finalRad = g_total_angle;
+end
+
+function init_plotting ()
+    figure; 
+    xlabel('Position in X-axis (m)');
+    ylabel('Position in Y-axis (m)');
 end
 
 % TODO
@@ -245,13 +248,18 @@ function regression_state (serPort)
     delta_x = g_goal_dist - g_total_x_dist;
     delta_y = g_total_y_dist;
     
+    checkMovingStats ();
+    
     display (sprintf ('regression_state: x = %f, delta_x = %f', g_total_x_dist, delta_x));
     turnAngle (serPort, c_TurnSpeed, (-1.0) * g_total_angle);
-    travelDist (serPort, c_VerySlowFwdVel, delta_x);
-    %update_moving_stats (serPort);
-
-    % re-orient to 90
+    update_moving_stats (serPort);
     
+    travelDist (serPort, c_VerySlowFwdVel, delta_x);
+    update_moving_stats (serPort);
+    
+    checkMovingStats ();
+    
+    % re-orient to 90
     display (sprintf ('regression_state: y = %f, delta_y = %f', g_total_y_dist, delta_y));
     if (g_total_y_dist > 0)
         turnAngle (serPort, c_TurnSpeed, -90.0);
@@ -259,10 +267,15 @@ function regression_state (serPort)
         turnAngle (serPort, c_TurnSpeed, 90.0);
     end
     
+    update_moving_stats (serPort);
+    
     travelDist (serPort, c_VerySlowFwdVel, delta_y);
     update_moving_stats (serPort);
     
+    checkMovingStats ();
+    
     display ('leave - regression_state');
+    
 end
 
 % a new state: trying to find the wall again.
@@ -459,7 +472,7 @@ function b_is_mline= is_mline ()
     
     b_is_mline = false;
     
-    if (abs (g_total_y_dist) < 0.05)
+    if (abs (g_total_y_dist) < 0.10)
         display ('m_line is found');
         b_is_mline = true;
         return;
@@ -554,7 +567,7 @@ function update_moving_stats (serPort)
         return;
     end
     
-    g_total_dist = g_total_dist + dist;
+    g_total_dist  = g_total_dist + dist;
     g_total_angle = g_total_angle + angle;
     
     temp_x = dist * cos (g_total_angle);
@@ -568,9 +581,9 @@ function update_moving_stats (serPort)
 
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
-    plot (g_total_x_dist, g_total_y_dist, 'x');
-    hold on;
-     
+    % do painting.
+    % plot (g_total_x_dist, g_total_y_dist, 'x');
+    % hold on;
 end
 
 function isDone= checkMovingStats ()
@@ -578,14 +591,13 @@ function isDone= checkMovingStats ()
     global g_total_x_dist;
     global g_total_y_dist;
     global g_total_angle;
-    global g_total_dist;
     global c_MaxToleranceRadius;
     global g_goal_dist;
 
     radius = sqrt ((g_total_x_dist - g_goal_dist) .^ 2 + g_total_y_dist .^ 2);
 
     display (sprintf ('current radius = %f', radius));
-    display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_dist, g_total_y_dist));
+    display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_x_dist, g_total_y_dist));
 
     if (radius < c_MaxToleranceRadius)
         isDone = true;
