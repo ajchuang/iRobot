@@ -13,7 +13,17 @@
 %
 %   Output:
 %       finalRad - Double, final turning radius of the Create (m)
-%   
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Configuration:
+%       before you started, make sure the following things
+%       0. Go to 'init_global'
+%       1. If you are running simulator, set the 'c_SimMode = true'
+%       2. If you are running real robot, 
+%           set 'c_SimMode = false'
+%           2.1 if using MAC_BOOK, set c_MacBook to true;
+%           2.2 if using WINDOWS, set c_MacBook to false;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function finalRad= hw2_team_01 (serPort)
 
     % constants
