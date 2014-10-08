@@ -174,6 +174,7 @@ function init_plotting ()
     figure; 
     xlabel('Position in X-axis (m)');
     ylabel('Position in Y-axis (m)');
+    title('Position of iRobot');
 end
 
 % TODO
@@ -374,8 +375,8 @@ function init_global ()
     global g_contact_y_dist;
 
     % test-related constants
-    c_SimMode           = true;
-    c_MacBook           = true;
+    c_SimMode           = false;
+    c_MacBook           = false;
     g_goal_dist         = 4.0;  % This is golden!
     
     % environment-related constants
@@ -472,7 +473,7 @@ function b_is_mline= is_mline ()
     
     b_is_mline = false;
     
-    if (abs (g_total_y_dist) < 0.10)
+    if (abs (g_total_y_dist) < 0.05)
         display ('m_line is found');
         b_is_mline = true;
         return;
@@ -582,8 +583,8 @@ function update_moving_stats (serPort)
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
     % do painting.
-    % plot (g_total_x_dist, g_total_y_dist, 'x');
-    % hold on;
+    plot (g_total_x_dist, g_total_y_dist, 'x');
+    hold on;
 end
 
 function isDone= checkMovingStats ()
