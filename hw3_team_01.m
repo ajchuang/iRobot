@@ -49,8 +49,8 @@ function finalRad= hw3_team_01 (serPort)
     global g_total_y_dist;
     global g_total_angle;
 
-    init_plotting ();
     init_global ();
+    init_plotting ();
 
     % loop variables
     wallSensor  = false;
@@ -178,14 +178,9 @@ function finalRad= hw3_team_01 (serPort)
     finalRad = g_total_angle;
 end
 
-function init_plotting ()
-    
+function init_plotting ()    
     global figHandle;
-    
-    figHandle = figure; 
-    xlabel ('Position in X-axis (m)');
-    ylabel ('Position in Y-axis (m)');
-    title  ('Position of iRobot');
+    figHandle = figure;     
 end
 
 % TODO
@@ -374,6 +369,7 @@ function init_global ()
     global c_RightTurnAngle;
     global c_CenterTurnAngle;
     global c_MaxToleranceRadius;
+    global c_grid_size;
 
     global g_goal_dist;
     global g_found_box;
@@ -383,6 +379,8 @@ function init_global ()
     global g_total_angle;
     global g_contact_x_dist;
     global g_contact_y_dist;
+    global g_map_matrix;
+    
 
     % test-related constants
     c_SimMode           = true;
@@ -391,6 +389,9 @@ function init_global ()
     
     % environment-related constants
     c_TurnRadius        = -0.20;
+    
+    % declare the map (50 x 50 array)
+    g_map_matrix        = ones (50);
 
     if c_SimMode
         c_SlowFwdVel    = 0.3;
@@ -423,6 +424,7 @@ function init_global ()
     c_LeftTurnAngle     = 60;
     c_RightTurnAngle    = 15;
     c_CenterTurnAngle   = 45;
+    c_grid_size         = 0.3; % meters %
 
     c_MaxToleranceRadius = 0.15; % meters %
 
@@ -556,6 +558,22 @@ function reset_bumping_moving_status ()
     g_contact_y_dist    = g_total_y_dist;
 end
 
+% Update the current map
+function update_current_map ()
+
+    global g_map_matrix;
+    global figHandle;
+        
+    figure (figHandle);
+    [r,c] = size (g_map_matrix);                  
+    imagesc ((1:c) + 0.5, (1:r) + 0.5, g_map_matrix);           
+    colormap (gray);                             
+    axis equal;                                  
+    set(gca,'XTick',1:(c+1),'YTick',1:(r+1),...  
+            'XLim', [1 c+1],'YLim',[1 r+1],...
+            'GridLineStyle','-','XGrid','on','YGrid','on');
+end
+
 % This is buggy -
 function update_moving_stats (serPort)
 
@@ -566,6 +584,8 @@ function update_moving_stats (serPort)
     global g_total_x_dist_after_bump;
     global g_total_y_dist_after_bump;
     global g_abs_dsit_after_bump;
+    global c_grid_size;
+    global g_map_matrix;
 
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
@@ -589,15 +609,13 @@ function update_moving_stats (serPort)
 
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
-    % do painting.
-    global figHandle;
+    % update current matrix info
+    x_idx = round (g_total_x_dist / c_grid_size);
+    y_idx = round (g_total_y_dist / c_grid_size);
+    g_map_matrix (y_idx + 25, x_idx + 25) = 0;
     
-    xlabel ('Position in X-axis (m)');
-    ylabel ('Position in Y-axis (m)');
-    title  ('Position of iRobot');
-    figure (figHandle);
-    plot (g_total_x_dist, g_total_y_dist, 'x');
-    hold on;
+    % do painting.
+    update_current_map ();
 end
 
 function isDone= checkMovingStats ()
