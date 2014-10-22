@@ -44,7 +44,6 @@ function finalRad= hw3_team_01 (serPort)
     global c_TurnSpeed;
     global c_TurnRadius;
 
-    global g_found_box;
     global g_total_x_dist;
     global g_total_y_dist;
     global g_total_angle;
@@ -71,7 +70,6 @@ function finalRad= hw3_team_01 (serPort)
     end
 
     % Start robot moving: go straight
-    c_SlowFwdVel = c_SlowFwdVel * 1.3;
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
 
     % hit the wall and stop - we disable this for HW2
@@ -94,12 +92,6 @@ function finalRad= hw3_team_01 (serPort)
             break;
         end
         
-        % check if we should leave the obstacle.
-        if (checkExitObstacle (serPort) == true)
-            display ('!!! unable to reach the goal - sorry !!!')
-            break;
-        end
-        
         % Step 1. check if hitting the wall
         % Check for and react to bump sensor readings
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
@@ -113,19 +105,12 @@ function finalRad= hw3_team_01 (serPort)
 
         % If obstacle was hit reset distance and angle recorders
         if (bumped)
-
+            
             display ('bump into the wall');
 
-            if (g_found_box == false)
-                % reset moving stats
-                update_moving_stats (serPort);
-                
-                % set when the box is found
-                g_found_box = true;
-                c_SlowFwdVel = c_SlowFwdVel / 1.3;
-                
-                reset_bumping_moving_status ();
-            end
+            % reset moving stats
+            update_moving_stats (serPort);
+            update_current_map (2);
 
             % remember the last angle we turn
             p_ang = bumpReact (serPort, bRight, bCenter, bLeft);
@@ -133,22 +118,20 @@ function finalRad= hw3_team_01 (serPort)
             % turning is done, let the robot go straight.
             SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
         else
-            if (g_found_box)
+            % Optimization: read as needed
+            wallSensor = WallSensorReadRoomba (serPort);
 
-                % Optimization: read as needed
-                wallSensor = WallSensorReadRoomba (serPort);
+            if (isnan (wallSensor))
+                display ('!!! Bad COM - retrying !!!');
+                continue;
+            elseif (wallSensor)
+                display ('wall sensor activated');
 
-                if (isnan (wallSensor))
-                    display ('!!! Bad COM - retrying !!!');
-                    continue;
-                elseif (wallSensor)
-                    display ('wall sensor activated');
-
-                    % a minor optimization using Wall Sensor
-                    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-                else
-                    find_wall (serPort);
-                end
+                % a minor optimization using Wall Sensor
+                SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+            else
+                % find_wall (serPort);
+                SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
             end
         end
 
@@ -156,9 +139,6 @@ function finalRad= hw3_team_01 (serPort)
         pause (c_LoopInteval);
     end
     
-    % final adjustment
-    regression_state (serPort);
-
     % Stop robot motion
     turnAngle (serPort, c_TurnSpeed, 360);
     SetFwdVelAngVelCreate (serPort, 0, 0);
@@ -181,63 +161,6 @@ end
 function init_plotting ()    
     global figHandle;
     figHandle = figure;     
-end
-
-% TODO
-% there is a hard-coded constant
-% Corner case: need to be handled.
-function neverEnd= checkExitObstacle (serPort)
-
-    global g_found_box;
-    global c_MaxToleranceRadius;
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global g_contact_x_dist;
-    global g_contact_y_dist;
-    global g_total_angle;
-    global c_TurnSpeed;
-    global c_SlowFwdVel;
-    global g_goal_dist;
-
-    % default value of neverEnd is false
-    neverEnd = false;
-
-    % check if the state changes --> hard coded, stupid function.
-    % back to m_line again -
-    % check if the state changes --> hard coded, stupid function.
-    if (g_found_box == true && is_mline () == true)
-        % back to m_line again -
-        
-        if (hit_bumping_pt ())
-            neverEnd = true;
-            return;
-        end
-        
-        if (dist_after_bumping () > 0.20 && closer_to_the_goal ())
-            display ('Leaving the box');
-            
-            % reset bumping memories
-            g_found_box = false;
-            c_SlowFwdVel = c_SlowFwdVel * 1.3;
-            reset_bumping_moving_status ();
-            
-            % stop and turn
-            if (g_total_x_dist > g_goal_dist)
-                turnDeg = g_total_angle * 180.0 / pi;
-            else
-                turnDeg = g_total_angle * (-1) * 180.0 / pi;
-            end
-            
-            SetFwdVelAngVelCreate (serPort, 0.0, 0);
-            turnAngle (serPort, c_TurnSpeed, turnDeg);
-            update_moving_stats (serPort);
-            
-            % keep going
-            SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0);
-            % waitBump (serPort);
-            return;
-        end
-    end 
 end
 
 % This is used to fine tuning the Y location, as close as possible
@@ -316,13 +239,6 @@ function find_wall (serPort)
             return;
         end
         
-        % check if we should leave the obstacle.
-        if (checkExitObstacle (serPort) == true)
-            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-            display ('leaving - find_wall: unable to reach the goal');
-            return;
-        end
-        
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
         wallSensor = WallSensorReadRoomba (serPort);
 
@@ -372,7 +288,6 @@ function init_global ()
     global c_grid_size;
 
     global g_goal_dist;
-    global g_found_box;
     global g_total_dist;
     global g_total_x_dist;
     global g_total_y_dist;
@@ -428,8 +343,6 @@ function init_global ()
 
     c_MaxToleranceRadius = 0.15; % meters %
 
-    % The flag is used to indicate if the obstable is seen.
-    g_found_box         = false;
     g_total_dist        = 0;
     g_total_x_dist      = 0.0;
     g_total_y_dist      = 0.0;
@@ -559,11 +472,30 @@ function reset_bumping_moving_status ()
 end
 
 % Update the current map
-function update_current_map ()
+% status:
+%   0: explored 
+%   1: unknown --> not possible
+%   2: wall
+function update_current_map (status)
 
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global c_grid_size;
     global g_map_matrix;
     global figHandle;
-        
+    
+    % update current matrix info
+    x_idx = round (g_total_x_dist / c_grid_size) + 25;
+    y_idx = round (g_total_y_dist / c_grid_size) + 25;
+    
+    tmp = g_map_matrix (y_idx, x_idx);
+    
+    if (tmp == 2)
+        return;
+    end
+    
+    g_map_matrix (y_idx, x_idx) = status;
+    
     figure (figHandle);
     [r,c] = size (g_map_matrix);                  
     imagesc ((1:c) + 0.5, (1:r) + 0.5, g_map_matrix);           
@@ -609,33 +541,12 @@ function update_moving_stats (serPort)
 
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
-    % update current matrix info
-    x_idx = round (g_total_x_dist / c_grid_size);
-    y_idx = round (g_total_y_dist / c_grid_size);
-    g_map_matrix (y_idx + 25, x_idx + 25) = 0;
-    
-    % do painting.
-    update_current_map ();
+    update_current_map (0);
 end
 
+% TODO: check if there is any 'connected unexplored' block
 function isDone= checkMovingStats ()
-
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global g_total_angle;
-    global c_MaxToleranceRadius;
-    global g_goal_dist;
-
-    radius = sqrt ((g_total_x_dist - g_goal_dist) .^ 2 + g_total_y_dist .^ 2);
-
-    display (sprintf ('current radius = %f', radius));
-    display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_x_dist, g_total_y_dist));
-
-    if (radius < c_MaxToleranceRadius)
-        isDone = true;
-    else
-        isDone = false;
-    end
+    isDone = false;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
