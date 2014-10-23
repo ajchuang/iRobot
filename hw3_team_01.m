@@ -126,6 +126,10 @@ function finalRad= hw3_team_01 (serPort)
                 continue;
             elseif (wallSensor)
                 display ('wall sensor activated');
+                
+                % when wall is sensed - set it as a wall
+                update_moving_stats (serPort);
+                update_current_map (2);
 
                 % a minor optimization using Wall Sensor
                 SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
