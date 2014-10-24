@@ -110,33 +110,43 @@ function finalRad= hw3_team_01 (serPort)
 
             % reset moving stats
             update_moving_stats (serPort);
-            update_current_map (2);
-
-            % remember the last angle we turn
-            p_ang = bumpReact (serPort, bRight, bCenter, bLeft);
-
+            if (update_current_map (2) == true)
+                break;
+            end
+            
+            deg = 0;
+            
+            % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
+            if ((bRight && bLeft) || bCenter)
+                display ('bumpReact: center')
+                deg = randi([90 270],1,1);
+                
+                if (deg > 180)
+                    deg = (deg - 180) * (-1);
+                end
+                
+                SetLEDsRoomba (serPort, 3, 50, 50);
+            elseif bRight
+                display ('bumpReact: right')
+                deg = randi([30 180],1,1);
+                SetLEDsRoomba (serPort, 2, 0, 50);
+            elseif bLeft
+                display ('bumpReact: left')
+                deg = randi([30 180],1,1) * (-1);
+                SetLEDsRoomba (serPort, 1, 100, 50);
+            end
+            
+            deg
+            
+            % back off for a little bit
+            travelDist (serPort, c_BackOffVel, c_BackOffDist);
+            turnAngle (serPort, c_TurnSpeed, deg);
+            
+            update_moving_stats (serPort);
+            
             % turning is done, let the robot go straight.
             SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-        else
-            % Optimization: read as needed
-            wallSensor = WallSensorReadRoomba (serPort);
-
-            if (isnan (wallSensor))
-                display ('!!! Bad COM - retrying !!!');
-                continue;
-            elseif (wallSensor)
-                display ('wall sensor activated');
-                
-                % when wall is sensed - set it as a wall
-                update_moving_stats (serPort);
-                update_current_map (2);
-
-                % a minor optimization using Wall Sensor
-                SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-            else
-                % find_wall (serPort);
-                SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-            end
+        
         end
 
         % Briefly pause to avoid continuous loop iteration
@@ -299,7 +309,9 @@ function init_global ()
     global g_contact_x_dist;
     global g_contact_y_dist;
     global g_map_matrix;
+    global g_last_unexplored_time;
     
+    rng (0,'twister');
 
     % test-related constants
     c_SimMode           = true;
@@ -313,8 +325,8 @@ function init_global ()
     g_map_matrix        = ones (50);
 
     if c_SimMode
-        c_SlowFwdVel    = 0.3;
-        c_TurnSpeed     = 0.2;
+        c_SlowFwdVel    = 0.5;
+        c_TurnSpeed     = 0.25;
         c_LoopInteval   = 0.01;
         c_VerySlowFwdVel = 0.1;
     else
@@ -336,6 +348,8 @@ function init_global ()
             c_VerySlowFwdVel = 0.025;
         end
     end
+
+    g_last_unexplored_time = cputime;
 
     c_BackOffVel        = 0.025;
     c_BackOffDist       = -0.01;
@@ -480,13 +494,16 @@ end
 %   0: explored 
 %   1: unknown --> not possible
 %   2: wall
-function update_current_map (status)
+function isDone= update_current_map (status)
 
     global g_total_x_dist;
     global g_total_y_dist;
     global c_grid_size;
     global g_map_matrix;
     global figHandle;
+    global g_last_unexplored_time;
+    
+    isDone = false;
     
     % update current matrix info
     x_idx = round (g_total_x_dist / c_grid_size) + 25;
@@ -496,6 +513,19 @@ function update_current_map (status)
     
     if (tmp == 2)
         return;
+    end
+    
+    if (tmp == status)
+        return;
+    end
+    
+    if (status == 0 && tmp == 1)
+        diff = cputime - g_last_unexplored_time;
+        if (diff > 60)
+            isDone = true;
+        else
+            g_last_unexplored_time = cputime;
+        end
     end
     
     g_map_matrix (y_idx, x_idx) = status;
@@ -511,7 +541,7 @@ function update_current_map (status)
 end
 
 % This is buggy -
-function update_moving_stats (serPort)
+function isDone= update_moving_stats (serPort)
 
     global g_total_x_dist;
     global g_total_y_dist;
@@ -545,7 +575,7 @@ function update_moving_stats (serPort)
 
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
     
-    update_current_map (0);
+    isDone = update_current_map (0);
 end
 
 % TODO: check if there is any 'connected unexplored' block
