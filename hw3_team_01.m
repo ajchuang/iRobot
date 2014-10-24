@@ -119,20 +119,27 @@ function finalRad= hw3_team_01 (serPort)
             % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
             if ((bRight && bLeft) || bCenter)
                 display ('bumpReact: center')
-                deg = randi([90 270],1,1);
                 
-                if (deg > 180)
-                    deg = (deg - 180) * (-1);
+                if (rand > 0.5)
+                    deg = randi([90 165],1,1);
+                    
+                else
+                    deg = randi([195 270],1,1);
+                    
+                    % optimization: faster turns
+                    if (deg > 180)
+                        deg = (deg - 180) * (-1);
+                    end
                 end
                 
                 SetLEDsRoomba (serPort, 3, 50, 50);
             elseif bRight
                 display ('bumpReact: right')
-                deg = randi([30 180],1,1);
+                deg = randi([30 175],1,1);
                 SetLEDsRoomba (serPort, 2, 0, 50);
             elseif bLeft
                 display ('bumpReact: left')
-                deg = randi([30 180],1,1) * (-1);
+                deg = randi([30 175],1,1) * (-1);
                 SetLEDsRoomba (serPort, 1, 100, 50);
             end
             
@@ -146,7 +153,14 @@ function finalRad= hw3_team_01 (serPort)
             
             % turning is done, let the robot go straight.
             SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-        
+        else
+            wallSensor = WallSensorReadRoomba (serPort);
+            
+            if (wallSensor)
+                if (update_current_map (2) == true)
+                    break;
+                end
+            end
         end
 
         % Briefly pause to avoid continuous loop iteration
@@ -170,6 +184,9 @@ function finalRad= hw3_team_01 (serPort)
 
     % Specify output parameter
     finalRad = g_total_angle;
+end
+
+function isDone= circumvention (serPort)
 end
 
 function init_plotting ()    
@@ -502,6 +519,7 @@ function isDone= update_current_map (status)
     global g_map_matrix;
     global figHandle;
     global g_last_unexplored_time;
+    global g_total_angle;
     
     isDone = false;
     
@@ -519,8 +537,10 @@ function isDone= update_current_map (status)
         return;
     end
     
+    % calculate stop time.
     if (status == 0 && tmp == 1)
         diff = cputime - g_last_unexplored_time;
+        
         if (diff > 60)
             isDone = true;
         else
@@ -528,6 +548,7 @@ function isDone= update_current_map (status)
         end
     end
     
+    g_last_unexplored_time
     g_map_matrix (y_idx, x_idx) = status;
     
     figure (figHandle);
