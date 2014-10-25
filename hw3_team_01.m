@@ -74,6 +74,7 @@ function finalRad= hw3_team_01 (serPort)
     
     % do bug to find the wall
     bug_algo (serPort);
+    wall_annotation ();
     
     % do other jobs
     
@@ -86,6 +87,47 @@ function finalRad= hw3_team_01 (serPort)
 
     % Specify output parameter
     finalRad = g_total_angle;
+end
+
+function wall_annot_rec (x, y)
+
+    global g_map_matrix;
+
+    tmp = g_map_matrix (x, y);
+    
+    if (tmp == 2)
+        g_map_matrix (x, y) = 3;
+    else
+        return;
+    end
+    
+    % do recusion
+    wall_annot_rec (x, y + 1);
+    wall_annot_rec (x, y - 1);
+    wall_annot_rec (x + 1, y);
+    wall_annot_rec (x - 1, y);
+    
+    return;
+end
+
+% status:
+%   0: explored 
+%   1: unknown --> not possible
+%   2: wall
+%   3: boundary
+function wall_annotation ()
+
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global c_grid_size;
+
+    % update current matrix info
+    x_idx = round (g_total_x_dist / c_grid_size) + 25;
+    y_idx = 50 - (round (g_total_y_dist / c_grid_size) + 25);
+    
+    wall_annot_rec (y_idx, x_idx);
+    
+    update_current_map (3);
 end
 
 function bug_algo (serPort)
@@ -260,7 +302,6 @@ function isDone= update_current_map (status)
         end
     end
     
-    g_last_unexplored_time
     g_map_matrix (y_idx, x_idx) = status;
     
     figure (figHandle);
@@ -609,14 +650,18 @@ function hit= hit_bumping_pt ()
 
     global g_contact_x_dist;
     global g_contact_y_dist;
-    global g_total_x_dist_after_bump;
-    global g_total_y_dist_after_bump;
+    global g_total_x_dist;
+    global g_total_y_dist;
+    
+    % set hit as false
     hit = false;
     
     if (dist_after_bumping () > 0.2)
     
-        d = sqrt ((g_total_x_dist_after_bump - g_contact_x_dist)^2 + (g_total_y_dist_after_bump - g_contact_y_dist)^2); 
-    
+        d = sqrt ((g_total_x_dist - g_contact_x_dist)^2 + (g_total_y_dist - g_contact_y_dist)^2);
+        
+        distance_to_hit_point = d
+        
         if (d <= 0.10)
             hit = true;
             return;
@@ -628,6 +673,7 @@ end
 function dist= dist_after_bumping ()
 
     global g_abs_dsit_after_bump;
+    g_abs_dsit_after_bump
     dist = g_abs_dsit_after_bump;
 end
 
