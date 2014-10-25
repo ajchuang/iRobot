@@ -4,7 +4,7 @@
 % Homework 3
 %
 % Team number: 1
-% Team leader:  Jen-Chieh Huang (jh3478)
+% Team leader: Jen-Chieh Huang (jh3478)
 % Team members: Sze wun wong (sw2955)
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -33,10 +33,8 @@ function finalRad= hw3_team_01 (serPort)
 
     global c_SimMode;
     global c_LoopInteval;
-    global c_FastFwdVel;
     global c_SlowFwdVel;
     global c_VerySlowFwdVel;
-    global c_AfterBumpFwdVel;
     global c_BackOffVel;
     global c_BackOffDist; % meters %
 
@@ -46,14 +44,13 @@ function finalRad= hw3_team_01 (serPort)
     global c_TurnSpeed;
     global c_TurnRadius;
 
-    global g_found_box;
     global g_total_x_dist;
     global g_total_y_dist;
     global g_total_angle;
 
     init_global ();
     init_plotting ();
-    
+
     % loop variables
     wallSensor  = false;
     bumped      = false;
@@ -71,53 +68,6 @@ function finalRad= hw3_team_01 (serPort)
             serPort = RoombaInit (c_PortName);
         end
     end
-    
-    % do bug to find the wall
-    bug_algo (serPort);
-    
-    % do other jobs
-    
-    % clean up
-    if c_SimMode == false
-        fclose (serPort);
-        delete (serPort);
-        clear  serPort;
-    end
-
-    % Specify output parameter
-    finalRad = g_total_angle;
-end
-
-function bug_algo (serPort)
-
-    % constants
-    global c_SimMode;
-    global c_LoopInteval;
-    global c_FastFwdVel;
-    global c_SlowFwdVel;
-    global c_VerySlowFwdVel;
-    global c_AfterBumpFwdVel;
-    global c_BackOffVel;
-    global c_BackOffDist; % meters %
-
-    global c_LeftTurnAngle;
-    global c_RightTurnAngle;
-    global c_CenterTurnAngle;
-    global c_TurnSpeed;
-    global c_TurnRadius;
-
-    global g_found_box;
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global g_total_angle;
-
-    % loop variables
-    wallSensor  = false;
-    bumped      = false;
-    p_bRight    = false;
-    p_bCenter   = false;
-    p_bLeft     = false;
-    p_ang       = 0;
 
     % Start robot moving: go straight
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
@@ -142,10 +92,131 @@ function bug_algo (serPort)
             break;
         end
         
+        % Step 1. check if hitting the wall
+        % Check for and react to bump sensor readings
+        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+
+        if (isnan (bRight) || isnan (bCenter) || isnan (bLeft))
+            display ('So bad - I dont know whats that');
+            continue;
+        else
+            bumped = bRight | bCenter | bLeft;
+        end
+
+        % If obstacle was hit reset distance and angle recorders
+        if (bumped)
+            
+            display ('bump into the wall');
+
+            % reset moving stats
+            update_moving_stats (serPort);
+            if (update_current_map (2) == true)
+                break;
+            end
+            
+            deg = 0;
+            
+            % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
+            if ((bRight && bLeft) || bCenter)
+                display ('bumpReact: center')
+                
+                if (rand > 0.5)
+                    deg = randi([90 165],1,1);
+                    
+                else
+                    deg = randi([195 270],1,1);
+                    
+                    % optimization: faster turns
+                    if (deg > 180)
+                        deg = (deg - 180) * (-1);
+                    end
+                end
+                
+                SetLEDsRoomba (serPort, 3, 50, 50);
+            elseif bRight
+                display ('bumpReact: right')
+                deg = randi([30 175],1,1);
+                SetLEDsRoomba (serPort, 2, 0, 50);
+            elseif bLeft
+                display ('bumpReact: left')
+                deg = randi([30 175],1,1) * (-1);
+                SetLEDsRoomba (serPort, 1, 100, 50);
+            end
+            
+            deg
+            
+            % back off for a little bit
+            travelDist (serPort, c_BackOffVel, c_BackOffDist);
+            turnAngle (serPort, c_TurnSpeed, deg);
+            
+            update_moving_stats (serPort);
+            
+            % turning is done, let the robot go straight.
+            SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+        else
+            wallSensor = WallSensorReadRoomba (serPort);
+            
+            if (wallSensor)
+                if (update_current_map (2) == true)
+                    break;
+                end
+            end
+        end
+
+        % Briefly pause to avoid continuous loop iteration
+        pause (c_LoopInteval);
+    end
+    
+    % Stop robot motion
+    turnAngle (serPort, c_TurnSpeed, 360);
+    SetFwdVelAngVelCreate (serPort, 0, 0);
+
+    BeepRoomba (serPort);
+    BeepRoomba (serPort);
+
+    % If you call RoombaInit inside the control program, this would be a
+    % good place to clean up the serial port with...
+    if c_SimMode == false
+        fclose (serPort);
+        delete (serPort);
+        clear  serPort;
+    end
+
+    % Specify output parameter
+    finalRad = g_total_angle;
+end
+
+function isDone= circumvention (serPort)
+
+    global g_total_x_dist;
+    global g_total_y_dist;
+    
+    isDone = false;
+    isEscapable = false;
+    impact_pos_x = g_total_x_dist;
+    impact_pos_y = g_total_y_dist;
+    total_movement = 0;
+    
+    while (true)
+    
+        update_moving_stats (serPort);
+        
+        current_x = g_total_x_dist - impact_pos_x;
+        current_y = g_total_y_dist - impact_pos_y;
+        total_movement = sqrt (current_x*current_x + current_y*current_y);
+        
+        if (total_movement > 0.3 && isEscapable == false)
+            isEscapable = true;
+        end
+        
+        if (isEscapable == true)
+            
+        end
+        
         % check if we should leave the obstacle.
         if (checkExitObstacle (serPort) == true)
             display ('!!! unable to reach the goal - sorry !!!')
-            return;
+            break;
         end
         
         % Step 1. check if hitting the wall
@@ -161,9 +232,6 @@ function bug_algo (serPort)
 
         % If obstacle was hit reset distance and angle recorders
         if (bumped)
-            
-            % set current location as 'obstacle'
-            update_current_map (2);
 
             display ('bump into the wall');
 
@@ -193,141 +261,26 @@ function bug_algo (serPort)
                     display ('!!! Bad COM - retrying !!!');
                     continue;
                 elseif (wallSensor)
-                    
-                    % also update the current location as wall
-                    update_current_map (2);
+                    display ('wall sensor activated');
 
                     % a minor optimization using Wall Sensor
                     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
                 else
                     find_wall (serPort);
                 end
-            else
-                % also update the current location as traversed
-                update_current_map (0);
             end
         end
 
         % Briefly pause to avoid continuous loop iteration
         pause (c_LoopInteval);
     end
+    
+    end
 end
 
-function init_plotting ()
+function init_plotting ()    
     global figHandle;
-    figHandle = figure; 
-end
-
-% Update the current map
-% status:
-%   0: explored 
-%   1: unknown --> not possible
-%   2: wall
-function isDone= update_current_map (status)
-
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global c_grid_size;
-    global g_map_matrix;
-    global figHandle;
-    global g_last_unexplored_time;
-    global g_total_angle;
-    
-    isDone = false;
-    
-    % update current matrix info
-    x_idx = round (g_total_x_dist / c_grid_size) + 25;
-    y_idx = 50 - (round (g_total_y_dist / c_grid_size) + 25);
-    
-    tmp = g_map_matrix (y_idx, x_idx);
-    
-    if (tmp == 2)
-        return;
-    end
-    
-    if (tmp == status)
-        return;
-    end
-    
-    % calculate stop time.
-    if (status == 0 && tmp == 1)
-        diff = cputime - g_last_unexplored_time;
-        
-        if (diff > 60)
-            isDone = true;
-        else
-            g_last_unexplored_time = cputime;
-        end
-    end
-    
-    g_last_unexplored_time
-    g_map_matrix (y_idx, x_idx) = status;
-    
-    figure (figHandle);
-    [r,c] = size (g_map_matrix);                  
-    imagesc ((1:c) + 0.5, (1:r) + 0.5, g_map_matrix);           
-    colormap (gray);                             
-    axis equal;                                  
-    set(gca,'XTick',1:(c+1),'YTick',1:(r+1),...  
-            'XLim', [1 c+1],'YLim',[1 r+1],...
-            'GridLineStyle','-','XGrid','on','YGrid','on');
-end
-
-% TODO
-% there is a hard-coded constant
-% Corner case: need to be handled.
-function neverEnd= checkExitObstacle (serPort)
-
-    global g_found_box;
-    global c_MaxToleranceRadius;
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global g_contact_x_dist;
-    global g_contact_y_dist;
-    global g_total_angle;
-    global c_TurnSpeed;
-    global c_SlowFwdVel;
-    global g_goal_dist;
-
-    % default value of neverEnd is false
-    neverEnd = false;
-
-    % check if the state changes --> hard coded, stupid function.
-    % back to m_line again -
-    % check if the state changes --> hard coded, stupid function.
-    if (g_found_box == true && is_mline () == true)
-        % back to m_line again -
-        
-        if (hit_bumping_pt ())
-            neverEnd = true;
-            return;
-        end
-        
-        if (dist_after_bumping () > 0.20 && closer_to_the_goal ())
-            display ('Leaving the box');
-            
-            % reset bumping memories
-            g_found_box = false;
-            c_SlowFwdVel = c_SlowFwdVel * 1.3;
-            reset_bumping_moving_status ();
-            
-            % stop and turn
-            if (g_total_x_dist > g_goal_dist)
-                turnDeg = g_total_angle * 180.0 / pi;
-            else
-                turnDeg = g_total_angle * (-1) * 180.0 / pi;
-            end
-            
-            SetFwdVelAngVelCreate (serPort, 0.0, 0);
-            turnAngle (serPort, c_TurnSpeed, turnDeg);
-            update_moving_stats (serPort);
-            
-            % keep going
-            SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0);
-            % waitBump (serPort);
-            return;
-        end
-    end 
+    figHandle = figure;     
 end
 
 % This is used to fine tuning the Y location, as close as possible
@@ -406,13 +359,6 @@ function find_wall (serPort)
             return;
         end
         
-        % check if we should leave the obstacle.
-        if (checkExitObstacle (serPort) == true)
-            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-            display ('leaving - find_wall: unable to reach the goal');
-            return;
-        end
-        
         [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
         wallSensor = WallSensorReadRoomba (serPort);
 
@@ -449,7 +395,6 @@ function init_global ()
     global c_TestingOn;
     global c_PortName;
     global c_LoopInteval;
-    global c_FastFwdVel;
     global c_SlowFwdVel;
     global c_VerySlowFwdVel;
     global c_BackOffVel;
@@ -462,31 +407,32 @@ function init_global ()
     global c_MaxToleranceRadius;
     global c_grid_size;
 
-    global g_map_matrix;
     global g_goal_dist;
-    global g_found_box;
     global g_total_dist;
     global g_total_x_dist;
     global g_total_y_dist;
     global g_total_angle;
     global g_contact_x_dist;
     global g_contact_y_dist;
+    global g_map_matrix;
+    global g_last_unexplored_time;
+    
+    rng (0,'twister');
 
     % test-related constants
     c_SimMode           = true;
     c_MacBook           = true;
-    g_goal_dist         = 15.0;  % This is golden!
+    g_goal_dist         = 4.0;  % This is golden!
     
     % environment-related constants
-    c_FastFwdVel        = 0.05;
     c_TurnRadius        = -0.20;
     
     % declare the map (50 x 50 array)
     g_map_matrix        = ones (50);
 
     if c_SimMode
-        c_SlowFwdVel    = 0.3;
-        c_TurnSpeed     = 0.2;
+        c_SlowFwdVel    = 0.5;
+        c_TurnSpeed     = 0.25;
         c_LoopInteval   = 0.01;
         c_VerySlowFwdVel = 0.1;
     else
@@ -509,8 +455,7 @@ function init_global ()
         end
     end
 
-    c_grid_size         = 0.3;
-    c_AfterBumpFwdVel   = 0.075;
+    g_last_unexplored_time = cputime;
 
     c_BackOffVel        = 0.025;
     c_BackOffDist       = -0.01;
@@ -518,11 +463,10 @@ function init_global ()
     c_LeftTurnAngle     = 60;
     c_RightTurnAngle    = 15;
     c_CenterTurnAngle   = 45;
+    c_grid_size         = 0.3; % meters %
 
     c_MaxToleranceRadius = 0.15; % meters %
 
-    % The flag is used to indicate if the obstable is seen.
-    g_found_box         = false;
     g_total_dist        = 0;
     g_total_x_dist      = 0.0;
     g_total_y_dist      = 0.0;
@@ -594,7 +538,6 @@ function isTrue= closer_to_the_goal ()
     dist_old = abs (g_contact_x_dist - g_goal_dist);
     display (sprintf ('closer_to_the_goal: new = %f, old = %f', dist_new, dist_old));
     
-    % trick - to avoid failing to exit
     if (dist_new < dist_old)
         display ('closer to goal');
         isTrue = true;
@@ -611,17 +554,19 @@ function hit= hit_bumping_pt ()
     global g_contact_y_dist;
     global g_total_x_dist_after_bump;
     global g_total_y_dist_after_bump;
-    hit = false;
     
     if (dist_after_bumping () > 0.2)
     
         d = sqrt ((g_total_x_dist_after_bump - g_contact_x_dist)^2 + (g_total_y_dist_after_bump - g_contact_y_dist)^2); 
     
-        if (d <= 0.10)
+        if (d < 0.10)
             hit = true;
             return;
         end
     end
+    
+    hit = false;
+    return;
 end
 
 % return the 'absolute' distance after bumping.
@@ -650,8 +595,63 @@ function reset_bumping_moving_status ()
     g_contact_y_dist    = g_total_y_dist;
 end
 
+% Update the current map
+% status:
+%   0: explored 
+%   1: unknown --> not possible
+%   2: wall
+function isDone= update_current_map (status)
+
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global c_grid_size;
+    global g_map_matrix;
+    global figHandle;
+    global g_last_unexplored_time;
+    global g_total_angle;
+    
+    isDone = false;
+    
+    % update current matrix info
+    x_idx = round (g_total_x_dist / c_grid_size) + 25;
+    y_idx = round (g_total_y_dist / c_grid_size) + 25;
+    
+    tmp = g_map_matrix (y_idx, x_idx);
+    
+    if (tmp == 2)
+        return;
+    end
+    
+    if (tmp == status)
+        return;
+    end
+    
+    % calculate stop time.
+    if (status == 0 && tmp == 1)
+        diff = cputime - g_last_unexplored_time;
+        
+        if (diff > 60)
+            isDone = true;
+        else
+            g_last_unexplored_time = cputime;
+        end
+    end
+    
+    g_last_unexplored_time
+    g_map_matrix (y_idx, x_idx) = status;
+    
+    figure (figHandle);
+    [r,c] = size (g_map_matrix);                  
+    imagesc ((1:c) + 0.5, (1:r) + 0.5, g_map_matrix);           
+    colormap (gray);                             
+    axis equal;                                  
+    set(gca,'XTick',1:(c+1),'YTick',1:(r+1),...  
+            'XLim', [1 c+1],'YLim',[1 r+1],...
+            'GridLineStyle','-','XGrid','on','YGrid','on');
+end
+
 % This is buggy -
-function update_moving_stats (serPort)
+function isDone= update_moving_stats (serPort)
 
     global g_total_x_dist;
     global g_total_y_dist;
@@ -660,6 +660,8 @@ function update_moving_stats (serPort)
     global g_total_x_dist_after_bump;
     global g_total_y_dist_after_bump;
     global g_abs_dsit_after_bump;
+    global c_grid_size;
+    global g_map_matrix;
 
     dist = DistanceSensorRoomba (serPort);
     angle = AngleSensorRoomba (serPort);
@@ -682,26 +684,13 @@ function update_moving_stats (serPort)
     g_total_y_dist_after_bump = g_total_y_dist_after_bump + temp_y;
 
     g_abs_dsit_after_bump = g_abs_dsit_after_bump + abs(dist);
+    
+    isDone = update_current_map (0);
 end
 
+% TODO: check if there is any 'connected unexplored' block
 function isDone= checkMovingStats ()
-
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global g_total_angle;
-    global c_MaxToleranceRadius;
-    global g_goal_dist;
-
-    radius = sqrt ((g_total_x_dist - g_goal_dist) .^ 2 + g_total_y_dist .^ 2);
-
-    display (sprintf ('current radius = %f', radius));
-    display (sprintf ('current g_total_x_dist = %f, g_total_y_dist = %f', g_total_x_dist, g_total_y_dist));
-
-    if (radius < c_MaxToleranceRadius)
-        isDone = true;
-    else
-        isDone = false;
-    end
+    isDone = false;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
