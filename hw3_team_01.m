@@ -76,6 +76,19 @@ function finalRad= hw3_team_01 (serPort)
     bug_algo (serPort);
     wall_annotation ();
     
+    while (true)
+    
+        % pick a 'connected' unexplored blk.
+        blk = any_unexplored_blks ();
+        
+        if (blk == [-1, -1])
+            break;
+        end
+        
+        % returns when the designated block becomes explored or obstacle.
+        go_to_block (serPort, blk);
+    end
+    
     % do other jobs
     
     % clean up
@@ -87,6 +100,102 @@ function finalRad= hw3_team_01 (serPort)
 
     % Specify output parameter
     finalRad = g_total_angle;
+end
+
+function M= translate_blk_to_coord (blk)
+    M= [(blk(1) - 25) * 0.3, (-1)*(blk(2) - 25) * 0.3];
+end
+
+function turn_toward_target (serPort, M)
+
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_total_angle;
+    global c_TurnSpeed;
+    
+    theta = atan2 (M(2) - g_total_y_dist, M(1) - g_total_x_dist);
+    angle = ((-1) * g_total_angle + theta) * pi / 180; 
+    
+    turnAngle (serPort, c_TurnSpeed, angle);
+end
+
+function go_to_target (serPort, M)
+
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global c_SlowFwdVel;
+    
+    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+
+    while (true)
+        update_moving_stats (serPort);
+        
+        if (abs(g_total_x_dist - M(1)) < 0.10 && abs(g_total_y_dist - M(2)) < 0.10)
+            update_current_map (0);
+            return;
+        end
+        
+        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+
+        if (isnan (bRight) || isnan (bCenter) || isnan (bLeft))
+            display ('So bad - I dont know whats that');
+            continue;
+        else
+            bumped = bRight | bCenter | bLeft;
+        end
+        
+        if (bumped)
+            update_current_map (2);
+            return;
+        end 
+    end
+
+end
+
+function go_to_block (serPort, blk)
+    
+    M= translate_blk_to_coord (blk);
+    turn_toward_target (serPort, M);
+    go_to_target (serPort, M);
+    
+    % do the m-line
+    %while (true)
+    %end
+end
+
+function M= any_unexplored_blks ()
+
+    global g_map_matrix;
+
+    for i = 1:50
+        for j = 1:50
+            if (g_map_matrix(i, j) == 0)
+                
+                if (i > 1 && g_map_matrix (i - 1, j) == 1)
+                    M = [i - 1, j]; 
+                    return;
+                end 
+                
+                
+                if (i < 50 && g_map_matrix (i + 1, j) == 1)
+                    M = [i + 1, j]; 
+                    return;
+                end
+                
+                if (j < 50 && g_map_matrix (i, j + 1) == 1)
+                    M = [i, j + 1]; 
+                    return;
+                end 
+                
+                if (j > 1 && g_map_matrix (i, j - 1) == 1)
+                    M = [i, j - 1]; 
+                    return;
+                end
+            end
+        end
+    end
+  
+    M = [-1, -1];
 end
 
 function wall_annot_rec (x, y)
@@ -108,6 +217,49 @@ function wall_annot_rec (x, y)
     wall_annot_rec (x - 1, y);
     
     return;
+end
+
+% the function is used to choose the coordinates we are going.
+% must within the wall.
+function M= find_next_dest ()
+    M = [0,0];
+end
+
+% function used to determine if a certain block is reachable.
+% 999 means - found the starting point 
+function isReachable= is_blk_reachable (blk_mat, starting_blk_mat)
+
+        global g_map_matrix;
+        
+        if (starting_blk_mat == blk_mat)
+            isReachable = 999;
+            return;
+        end
+        
+        x = blk_mat (1);
+        y = blk_mat (2);
+        
+        % test only unexplored and explored. or return -1
+        tmp = g_map_matrix (x,y);
+         
+        if (tmp == 0 || tmp == 1)
+            
+            ret1 = is_blk_reachable ([x, y + 1], starting_blk_mat);
+            ret2 = is_blk_reachable ([x, y - 1], starting_blk_mat);
+            ret3 = is_blk_reachable ([x + 1, y], starting_blk_mat);
+            ret4 = is_blk_reachable ([x - 1, y], starting_blk_mat);
+            
+            if (ret1 + ret2 + ret3 + ret4 > 500)
+                isReachable = 999; 
+                return;
+            else
+                isReachable = -1;
+                return;
+            end
+        else
+            isReachable = -1;
+            return;
+        end
 end
 
 % status:
@@ -263,8 +415,9 @@ end
 % Update the current map
 % status:
 %   0: explored 
-%   1: unknown --> not possible
+%   1: unknown
 %   2: wall
+%   3: boundaries
 function isDone= update_current_map (status)
 
     global g_total_x_dist;
@@ -662,7 +815,7 @@ function hit= hit_bumping_pt ()
         
         distance_to_hit_point = d
         
-        if (d <= 0.10)
+        if (d <= 0.15)
             hit = true;
             return;
         end
