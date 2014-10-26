@@ -51,7 +51,7 @@ function finalRad= hw3_team_01 (serPort)
     global g_total_y_dist;
     global g_total_angle;
 
-    init_global ();
+    init_world ();
     init_plotting ();
     
     % loop variables
@@ -79,14 +79,19 @@ function finalRad= hw3_team_01 (serPort)
     while (true)
     
         % pick a 'connected' unexplored blk.
-        blk = any_unexplored_blks ();
+        nextblk = any_unexplored_blks ();
         
-        if (blk == [-1, -1])
+        % log
+        nextblk
+        
+        if (nextblk == [-1, -1])
+            display ('no blocks to explore - complete');
             break;
         end
         
         % returns when the designated block becomes explored or obstacle.
-        go_to_block (serPort, blk);
+        go_to_block (serPort, nextblk);
+        pause (c_LoopInteval);
     end
     
     % do other jobs
@@ -102,11 +107,8 @@ function finalRad= hw3_team_01 (serPort)
     finalRad = g_total_angle;
 end
 
-function M= translate_blk_to_coord (blk)
-    M= [(blk(1) - 25) * 0.3, (-1)*(blk(2) - 25) * 0.3];
-end
-
-function turn_toward_target (serPort, M)
+% turning the robot to the target point
+function turn_to_target (serPort, M)
 
     global g_total_x_dist;
     global g_total_y_dist;
@@ -114,7 +116,7 @@ function turn_toward_target (serPort, M)
     global c_TurnSpeed;
     
     theta = atan2 (M(2) - g_total_y_dist, M(1) - g_total_x_dist);
-    angle = ((-1) * g_total_angle + theta) * pi / 180; 
+    angle = rad2deg (((-1) * g_total_angle + theta)); 
     
     turnAngle (serPort, c_TurnSpeed, angle);
 end
@@ -124,14 +126,31 @@ function go_to_target (serPort, M)
     global g_total_x_dist;
     global g_total_y_dist;
     global c_SlowFwdVel;
+    global c_LoopInteval;
+    
+    global c_blk_explored;
+    global c_blk_unexplored;
+    global c_blk_wall;
+    global c_blk_bound;
+    global c_MaxToleranceRadius;
     
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
-
+    
     while (true)
+    
+        % update current position
         update_moving_stats (serPort);
         
-        if (abs(g_total_x_dist - M(1)) < 0.10 && abs(g_total_y_dist - M(2)) < 0.10)
-            update_current_map (0);
+        if (point_distance (M, [g_total_x_dist, g_total_y_dist]) < c_MaxToleranceRadius)
+        
+            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            travelDist (serPort, c_SlowFwdVel, 0.15);
+            update_moving_stats (serPort);
+        
+            update_current_map (c_blk_explored);
+            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            
+            display ('Arrived the designated point - return');
             return;
         end
         
@@ -145,17 +164,25 @@ function go_to_target (serPort, M)
         end
         
         if (bumped)
-            update_current_map (2);
+            display ('Bumpped - return');
+            update_current_map (c_blk_wall);
+            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
             return;
         end 
+        
+        pause (c_LoopInteval);
     end
-
 end
 
 function go_to_block (serPort, blk)
     
+    
     M= translate_blk_to_coord (blk);
-    turn_toward_target (serPort, M);
+    
+    blk
+    M
+    
+    turn_to_target (serPort, M);
     go_to_target (serPort, M);
     
     % do the m-line
@@ -163,49 +190,51 @@ function go_to_block (serPort, blk)
     %end
 end
 
-function M= any_unexplored_blks ()
+function unexplored_blk= any_unexplored_blks ()
 
     global g_map_matrix;
-
+    
     for i = 1:50
         for j = 1:50
             if (g_map_matrix(i, j) == 0)
                 
                 if (i > 1 && g_map_matrix (i - 1, j) == 1)
-                    M = [i - 1, j]; 
+                    unexplored_blk = [i - 1, j]; 
                     return;
                 end 
                 
-                
                 if (i < 50 && g_map_matrix (i + 1, j) == 1)
-                    M = [i + 1, j]; 
+                    unexplored_blk = [i + 1, j]; 
                     return;
                 end
                 
                 if (j < 50 && g_map_matrix (i, j + 1) == 1)
-                    M = [i, j + 1]; 
+                    unexplored_blk = [i, j + 1]; 
                     return;
                 end 
                 
                 if (j > 1 && g_map_matrix (i, j - 1) == 1)
-                    M = [i, j - 1]; 
+                    unexplored_blk = [i, j - 1]; 
                     return;
                 end
             end
         end
     end
   
-    M = [-1, -1];
+    unexplored_blk = [-1, -1];
 end
 
 function wall_annot_rec (x, y)
 
     global g_map_matrix;
+    
+    global c_blk_bound;
+    global c_blk_wall;
 
     tmp = g_map_matrix (x, y);
     
-    if (tmp == 2)
-        g_map_matrix (x, y) = 3;
+    if (tmp == c_blk_wall)
+        g_map_matrix (x, y) = c_blk_bound;
     else
         return;
     end
@@ -219,49 +248,6 @@ function wall_annot_rec (x, y)
     return;
 end
 
-% the function is used to choose the coordinates we are going.
-% must within the wall.
-function M= find_next_dest ()
-    M = [0,0];
-end
-
-% function used to determine if a certain block is reachable.
-% 999 means - found the starting point 
-function isReachable= is_blk_reachable (blk_mat, starting_blk_mat)
-
-        global g_map_matrix;
-        
-        if (starting_blk_mat == blk_mat)
-            isReachable = 999;
-            return;
-        end
-        
-        x = blk_mat (1);
-        y = blk_mat (2);
-        
-        % test only unexplored and explored. or return -1
-        tmp = g_map_matrix (x,y);
-         
-        if (tmp == 0 || tmp == 1)
-            
-            ret1 = is_blk_reachable ([x, y + 1], starting_blk_mat);
-            ret2 = is_blk_reachable ([x, y - 1], starting_blk_mat);
-            ret3 = is_blk_reachable ([x + 1, y], starting_blk_mat);
-            ret4 = is_blk_reachable ([x - 1, y], starting_blk_mat);
-            
-            if (ret1 + ret2 + ret3 + ret4 > 500)
-                isReachable = 999; 
-                return;
-            else
-                isReachable = -1;
-                return;
-            end
-        else
-            isReachable = -1;
-            return;
-        end
-end
-
 % status:
 %   0: explored 
 %   1: unknown --> not possible
@@ -272,14 +258,24 @@ function wall_annotation ()
     global g_total_x_dist;
     global g_total_y_dist;
     global c_grid_size;
+    global c_map_dim;
+    global c_x_origin_grid;
+    global c_y_origin_grid;
+    
+    global c_blk_explored;
+    global c_blk_unexplored;
+    global c_blk_wall;
+    global c_blk_bound;
+    
+    blk = translate_coord_to_blk ([g_total_x_dist, g_total_y_dist]);
+    wall_annot_rec (blk (1), blk (2));
+    
+    % repaint the whole map
+    do_plotting ();
+end
 
-    % update current matrix info
-    x_idx = round (g_total_x_dist / c_grid_size) + 25;
-    y_idx = 50 - (round (g_total_y_dist / c_grid_size) + 25);
-    
-    wall_annot_rec (y_idx, x_idx);
-    
-    update_current_map (3);
+% to impl
+function reset_bug_params ()
 end
 
 function bug_algo (serPort)
@@ -312,6 +308,8 @@ function bug_algo (serPort)
     p_bCenter   = false;
     p_bLeft     = false;
     p_ang       = 0;
+    
+    reset_bug_params ();
 
     % Start robot moving: go straight
     SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
@@ -367,8 +365,6 @@ function bug_algo (serPort)
                 
                 % set when the box is found
                 g_found_box = true;
-                c_SlowFwdVel = c_SlowFwdVel / 1.3;
-                
                 reset_bumping_moving_status ();
             end
 
@@ -405,19 +401,12 @@ function bug_algo (serPort)
         % Briefly pause to avoid continuous loop iteration
         pause (c_LoopInteval);
     end
-end
-
-function init_plotting ()
-    global figHandle;
-    figHandle = figure; 
+    
+    update_moving_stats ();
+    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
 end
 
 % Update the current map
-% status:
-%   0: explored 
-%   1: unknown
-%   2: wall
-%   3: boundaries
 function isDone= update_current_map (status)
 
     global g_total_x_dist;
@@ -428,15 +417,20 @@ function isDone= update_current_map (status)
     global g_last_unexplored_time;
     global g_total_angle;
     
+    global c_blk_explored;
+    global c_blk_unexplored;
+    global c_blk_wall;
+    global c_blk_bound;
+    
     isDone = false;
+    cordM = translate_coord_to_blk ([g_total_x_dist, g_total_y_dist]);
     
-    % update current matrix info
-    x_idx = round (g_total_x_dist / c_grid_size) + 25;
-    y_idx = 50 - (round (g_total_y_dist / c_grid_size) + 25);
+    x_idx = cordM(1);
+    y_idx = cordM(2);
+        
+    tmp = g_map_matrix (x_idx, y_idx);
     
-    tmp = g_map_matrix (y_idx, x_idx);
-    
-    if (tmp == 2)
+    if (tmp == c_blk_wall || tmp == c_blk_bound)
         return;
     end
     
@@ -445,7 +439,7 @@ function isDone= update_current_map (status)
     end
     
     % calculate stop time.
-    if (status == 0 && tmp == 1)
+    if (status == c_blk_explored && tmp == c_blk_unexplored)
         diff = cputime - g_last_unexplored_time;
         
         if (diff > 60)
@@ -455,16 +449,9 @@ function isDone= update_current_map (status)
         end
     end
     
-    g_map_matrix (y_idx, x_idx) = status;
+    g_map_matrix (x_idx, y_idx) = status;
     
-    figure (figHandle);
-    [r,c] = size (g_map_matrix);                  
-    imagesc ((1:c) + 0.5, (1:r) + 0.5, g_map_matrix);           
-    colormap (gray);                             
-    axis equal;                                  
-    set(gca,'XTick',1:(c+1),'YTick',1:(r+1),...  
-            'XLim', [1 c+1],'YLim',[1 r+1],...
-            'GridLineStyle','-','XGrid','on','YGrid','on');
+    do_plotting ();
 end
 
 % TODO
@@ -596,6 +583,7 @@ function find_wall (serPort)
         % check if mission completed
         if (checkMovingStats ())
             SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            update_moving_stats (serPort);
             display ('leaving - find_wall: end point found');
             return;
         end
@@ -603,6 +591,7 @@ function find_wall (serPort)
         % check if we should leave the obstacle.
         if (checkExitObstacle (serPort) == true)
             SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            update_moving_stats (serPort);
             display ('leaving - find_wall: unable to reach the goal');
             return;
         end
@@ -634,96 +623,7 @@ function find_wall (serPort)
     end
 end
 
-% init all global variables
-function init_global ()
 
-    % constants
-    global c_SimMode;
-    global c_MacBook;
-    global c_TestingOn;
-    global c_PortName;
-    global c_LoopInteval;
-    global c_FastFwdVel;
-    global c_SlowFwdVel;
-    global c_VerySlowFwdVel;
-    global c_BackOffVel;
-    global c_BackOffDist; % meters %
-    global c_TurnSpeed;
-    global c_TurnRadius;
-    global c_LeftTurnAngle;
-    global c_RightTurnAngle;
-    global c_CenterTurnAngle;
-    global c_MaxToleranceRadius;
-    global c_grid_size;
-
-    global g_map_matrix;
-    global g_goal_dist;
-    global g_found_box;
-    global g_total_dist;
-    global g_total_x_dist;
-    global g_total_y_dist;
-    global g_total_angle;
-    global g_contact_x_dist;
-    global g_contact_y_dist;
-
-    % test-related constants
-    c_SimMode           = true;
-    c_MacBook           = true;
-    g_goal_dist         = 15.0;  % This is golden!
-    
-    % environment-related constants
-    c_FastFwdVel        = 0.05;
-    c_TurnRadius        = -0.20;
-    
-    % declare the map (50 x 50 array)
-    g_map_matrix        = ones (50);
-
-    if c_SimMode
-        c_SlowFwdVel    = 0.3;
-        c_TurnSpeed     = 0.2;
-        c_LoopInteval   = 0.01;
-        c_VerySlowFwdVel = 0.1;
-    else
-        if c_MacBook
-            % machine dependent params
-            c_PortName      = 'ElementSerial-ElementSe';
-            c_TestingOn     = true;
-            c_SlowFwdVel    = 0.03;
-            c_TurnSpeed     = 0.025;
-            c_LoopInteval   = 0.01;
-            c_VerySlowFwdVel = 0.025;
-        else
-            % machine dependent params
-            c_PortName      = 4;
-            c_TestingOn     = true;
-            c_SlowFwdVel    = 0.05;
-            c_TurnSpeed     = 0.05;
-            c_LoopInteval   = 0.1;
-            c_VerySlowFwdVel = 0.025;
-        end
-    end
-
-    c_grid_size         = 0.3;
-    c_AfterBumpFwdVel   = 0.075;
-
-    c_BackOffVel        = 0.025;
-    c_BackOffDist       = -0.01;
-
-    c_LeftTurnAngle     = 60;
-    c_RightTurnAngle    = 15;
-    c_CenterTurnAngle   = 45;
-
-    c_MaxToleranceRadius = 0.15; % meters %
-
-    % The flag is used to indicate if the obstable is seen.
-    g_found_box         = false;
-    g_total_dist        = 0;
-    g_total_x_dist      = 0.0;
-    g_total_y_dist      = 0.0;
-    g_total_angle       = 0.0;
-    g_contact_x_dist    = 0.0;
-    g_contact_y_dist    = 0.0;
-end
 
 % init all global variables
 function t_ang= bumpReact (serPort, right, center, left)
@@ -941,4 +841,233 @@ function waitBump (serPort)
         end
     end
     
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                               UI function                                    %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function init_plotting ()
+    global figHandle;
+    figHandle = figure; 
+end
+
+function do_plotting ()
+
+    global figHandle;
+    global g_map_matrix;
+
+    figure (figHandle);
+    [r,c] = size (g_map_matrix);                  
+    
+    imagesc ((1:c) + 0.5, (1:r) + 0.5, (g_map_matrix / 4));
+    colormap (gray);
+    axis equal;
+    
+    set (gca,   'XTick',    1:(c+1), ...
+                'YTick',    1:(r+1), ...  
+                'XLim',     [1 c+1], ...
+                'YLim',     [1 r+1], ...
+                'GridLineStyle',    '-', ...
+                'XGrid',    'on', ...
+                'YGrid',    'on');
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                               UTILITIES                                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% input     blk:    [row,   col ]
+% output    coord:  [x,     y   ]
+function coord= translate_blk_to_coord (blk)
+
+    global c_map_dim;
+    global c_x_origin_grid;
+    global c_y_origin_grid;
+    global c_grid_size;     % grid edge length in meters
+    global c_map_dim;       % the num of blks of an edge
+
+    xc = (blk(2) - c_x_origin_grid) * c_grid_size;
+    yc = (c_map_dim - blk(1) - c_y_origin_grid) * c_grid_size;
+    
+    % row --> y coord
+    % col --> x coord
+    coord = [xc, yc];
+    
+    %log
+    coord
+end
+
+% output    coord:  [x,     y   ]
+% input     blk:    [row,   col ]
+function blk= translate_coord_to_blk (coord)
+
+    global c_x_origin_grid; 
+    global c_y_origin_grid;
+    global c_grid_size;     % grid edge length in meters
+    global c_map_dim;       % the num of blks of an edge
+    
+    coord = round (coord / c_grid_size);
+
+    row = c_y_origin_grid - coord(2);
+    col = c_x_origin_grid + coord(1);
+    
+    % y and x -- this is NOT typo
+    blk = [row, col];
+    
+    %log 
+    blk
+end
+
+% return the distance of 2 points
+function dist= point_distance (src, dst)
+    tmp = (dst - src).^2;
+    dist = sqrt (tmp(1) + tmp(2));
+end
+
+function rad=  deg2rad (deg)
+    rad = deg * pi / 180;
+end
+
+function deg= rad2deg (rad)
+    deg = rad * 180 / pi;
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                               INITIALIZATION                                 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function init_const ()
+
+    % constants
+    global c_SimMode;
+    global c_MacBook;
+    global c_TestingOn;
+    global c_PortName;
+    global c_LoopInteval;
+    global c_FastFwdVel;
+    global c_SlowFwdVel;
+    global c_VerySlowFwdVel;
+    global c_BackOffVel;
+    global c_BackOffDist; % meters %
+    global c_TurnSpeed;
+    global c_TurnRadius;
+    global c_LeftTurnAngle;
+    global c_RightTurnAngle;
+    global c_CenterTurnAngle;
+    global c_MaxToleranceRadius;
+    
+    % for HW3
+    global c_grid_size;
+    global c_map_dim;   % the num of blks of an edge
+    global c_x_origin_grid;
+    global c_y_origin_grid;
+    
+    global c_blk_explored;
+    global c_blk_unexplored;
+    global c_blk_wall;
+    global c_blk_bound;
+    % end
+    
+    % test-related constants
+    c_SimMode           = true;
+    c_MacBook           = true;
+    
+    % environment-related constants
+    c_FastFwdVel        = 0.05;
+    c_TurnRadius        = -0.20;
+    
+    if c_SimMode
+        c_SlowFwdVel    = 0.3;
+        c_TurnSpeed     = 0.2;
+        c_LoopInteval   = 0.01;
+        c_VerySlowFwdVel = 0.1;
+    else
+        if c_MacBook
+            % machine dependent params
+            c_PortName      = 'ElementSerial-ElementSe';
+            c_TestingOn     = true;
+            c_SlowFwdVel    = 0.03;
+            c_TurnSpeed     = 0.025;
+            c_LoopInteval   = 0.01;
+            c_VerySlowFwdVel = 0.025;
+        else
+            % machine dependent params
+            c_PortName      = 4;
+            c_TestingOn     = true;
+            c_SlowFwdVel    = 0.05;
+            c_TurnSpeed     = 0.05;
+            c_LoopInteval   = 0.1;
+            c_VerySlowFwdVel = 0.025;
+        end
+    end
+
+    % for map exploration
+    c_grid_size         = 0.3;
+    c_map_dim           = 50;
+    c_x_origin_grid     = 25;
+    c_y_origin_grid     = 25;
+    
+    c_blk_explored      = 0;
+    c_blk_unexplored    = 1;
+    c_blk_wall          = 2;
+    c_blk_bound         = 3;
+    % end
+    
+    c_AfterBumpFwdVel   = 0.075;
+
+    c_BackOffVel        = 0.025;
+    c_BackOffDist       = -0.01;
+
+    c_LeftTurnAngle     = 60;
+    c_RightTurnAngle    = 15;
+    c_CenterTurnAngle   = 45;
+
+    c_MaxToleranceRadius = 0.10; % meters %
+end
+
+function init_bug ()
+
+    global g_goal_dist;
+    global g_found_box;
+    global g_contact_x_dist;
+    global g_contact_y_dist;
+
+    g_goal_dist         = 15.0;  % This is golden!
+    g_found_box         = false;
+    g_contact_x_dist    = 0.0;
+    g_contact_y_dist    = 0.0;
+end
+
+% init all global variables
+function init_global ()
+
+    global g_map_matrix;
+    global g_total_dist;
+    global g_total_x_dist;
+    global g_total_y_dist;
+    global g_total_angle;
+    
+    % referred constants
+    global c_map_dim;
+    
+
+    % declare the map (50 x 50 array)
+    g_map_matrix        = ones (c_map_dim);
+
+    % The flag is used to indicate if the obstable is seen.
+    g_total_dist        = 0;
+    g_total_x_dist      = 0.0;
+    g_total_y_dist      = 0.0;
+    g_total_angle       = 0.0;
+end
+
+function init_world ()
+
+    % clear everything
+    clear all;
+    
+    % do everything
+    init_const ();
+    init_global ();
+    init_bug ();
 end
