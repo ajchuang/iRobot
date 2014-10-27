@@ -875,7 +875,7 @@ function b_is_mline= is_mline ()
     
     display (sprintf ('current dist %f', dist));
     
-    if (dist < 0.1)
+    if (dist < 0.15)
         display ('m_line is found');
         b_is_mline = true;
         return;
