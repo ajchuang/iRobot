@@ -110,6 +110,9 @@ function finalRad= hw3_team_01 (serPort)
         delete (serPort);
         clear  serPort;
     end
+    
+    fill_blanks ();
+    do_plotting ();
 
     % Specify output parameter
     finalRad = g_total_angle;
@@ -1081,6 +1084,25 @@ function do_plotting ()
                 'XGrid',    'on', ...
                 'YGrid',    'on');
 
+end
+
+function fill_blanks ()
+
+    global g_map_matrix;
+
+    for i = 2:49
+        for j = 2:49            
+            if (g_map_matrix (i, j) == 1)
+                if ((g_map_matrix (i-1, j) == 0 || g_map_matrix (i-1, j) == 3) && ... 
+                    (g_map_matrix (i+1, j) == 0 || g_map_matrix (i+1, j) == 3) && ...
+                    (g_map_matrix (i, j+1) == 0 || g_map_matrix (i, j+1) == 3) && ... 
+                    (g_map_matrix (i, j-1) == 0 || g_map_matrix (i, j-1) == 3))
+                    
+                    g_map_matrix (i, j) == 0;
+                end
+            end
+        end
+    end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
