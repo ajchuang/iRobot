@@ -1,8 +1,9 @@
+import java.util.Iterator;
 import java.util.ArrayList;
-import java.awt.geom.Point2D;
+import java.util.StringTokenizer;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.util.StringTokenizer;
+import java.awt.geom.Point2D;
 
 public class PathPlanner {
     
@@ -13,6 +14,8 @@ public class PathPlanner {
     /* data points */
     RObject m_workSpace;
     ArrayList<RObject> m_obj;
+
+    /* 2 special points: start & end */
     Point2D.Double m_start;
     Point2D.Double m_end;
     
@@ -106,18 +109,105 @@ public class PathPlanner {
         }
     }
     
+    /* use the http://geomalgorithms.com/a13-_intersect-4.html */
+    /*  
+        Copyright 2001 softSurfer, 2012 Dan Sunday
+        This code may be freely used and modified for any purpose
+        providing that this copyright notice is included with it.
+        SoftSurfer makes no warranty for this code, and cannot be held
+        liable for any real or imagined damage resulting from its use.
+        Users of this code must verify correctness for their application.
+    */
+    boolean isLinePassedThroughPolygon (Point2D a, Point2D b, RObject plgn) {
+        
+        double tE = 0;              // the maximum entering segment parameter
+        double tL = 1;              // the minimum leaving segment parameter
+        double t, N, D;             // intersect parameter t = N / D
+        RVector dS = new RVector (a, b);          // the  segment direction vector
+        RVector e;                   // edge vector
+        
+        if (a.equals (b)) {
+            System.out.println ("[Error] 2 points coincide: " + a + ":" + b);
+            return false;
+        }
+        
+        for (int i = 0; i < plgn.numPoints (); i++) {
+            
+            int next = (i + 1) % plgn.numPoints ();
+            Point2D cVertex = plgn.getPointIdx (i);
+            Point2D nVertex = plgn.getPointIdx (next); 
+            
+            e = new RVector (cVertex, nVertex);
+            
+            N = e.perp (new RVector (a, cVertex)); // = -dot(ne, S.P0 - V[i])
+            D = (-1) * e.perp (dS);       // = dot(ne, dS)
+            
+            /* assuming that abs is very small, they are parallel */
+            if (Math.abs (D) < 0.000001) {
+                if (N < 0)              // P0 is outside this edge, so
+                    return false;       // S is outside the polygon
+                else                    // S cannot cross this edge, so
+                    continue;           // ignore this edge
+            }
+
+            t = N / D;
+        
+            if (D < 0) {            // segment S is entering across this edge
+                if (t > tE) {       // new max tE
+                    tE = t;
+                 
+                    if (tE > tL)   // S enters after leaving polygon
+                        return false;
+                }
+            } else {                  // segment S is leaving across this edge
+                if (t < tL) {       // new min tL
+                    tL = t;
+                    
+                    if (tL < tE)   // S leaves before entering polygon
+                        return false;
+                }
+            }
+        }
+
+        return true;
+    }
+    
+    
     /* check if the 2 points (a, b) can connect without going through the inside of any box */
+    /* traverse through everything */
     boolean isDirectlyConnected (Point2D a, Point2D b) {
+        
+        /* check the workspace first */
+        if (isLinePassedThroughPolygon (a, b, m_workSpace))
+            return false;
+        
+        /* check all the obstacles */
+        Iterator<RObject> it = m_obj.iterator ();
+
+        while (it.hasNext ()) {
+            RObject obj = it.next ();
+            
+            if (isLinePassedThroughPolygon (a, b, obj))
+                return false;
+        }
+        
         return true;
     }
     
     void expandMargin () {
+        /* For all polygons,        */
+        /* For each node,           */
+        /* 1.   calculate K and B   */
+        /* 2.   derive delta-B      */
+        /* 2.5  save the equation   */
+        /* 3.   calculate new (x,y) */
     }
     
     void createPaths () {
     }
     
     void selectPath () {
+        /* Dijstra's algorithm */
     }
     
     void output () {

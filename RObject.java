@@ -21,6 +21,14 @@ public class RObject {
         m_expandedPoints.add (new Point2D.Double (x, y));
     }
     
+    public int numPoints () {
+        return m_points.size ();
+    }
+    
+    public Point2D getPointIdx (int idx) {
+        return m_points.get (idx);
+    }
+    
     public void printObject () {
 
         System.out.println ("Object Dump:");
