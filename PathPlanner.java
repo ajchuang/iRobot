@@ -1,5 +1,6 @@
 import java.util.Iterator;
 import java.util.ArrayList;
+import java.util.Vector;
 import java.util.StringTokenizer;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -10,10 +11,12 @@ public class PathPlanner {
     /* constants */
     final double m_robotDiameter    = 35.0;
     final double m_robotRadius      = 35.0 / 2;
+    final double m_inf              = 9999999999.99;
     
     /* data points */
     RObject m_workSpace;
     ArrayList<RObject> m_obj;
+    Vector<Point2D> m_path;
 
     /* 2 special points: start & end */
     Point2D.Double m_start;
@@ -21,6 +24,7 @@ public class PathPlanner {
     
     public PathPlanner () {
         m_obj = new ArrayList<RObject> ();
+        m_path = new Vector<Point2D> ();
     }
     
     public void createObjects (String objFile) {
@@ -107,6 +111,12 @@ public class PathPlanner {
         } catch (Exception e) {
             System.out.println (e);
         }
+    }
+    
+    double distance (Point2D src, Point2D dst) {
+        return Math.sqrt (
+                    (dst.getX () - src.getX ()) * (dst.getX () - src.getX ()) + 
+                    (dst.getY () - src.getY ()) * (dst.getY () - src.getY ()));  
     }
     
     /* use the http://geomalgorithms.com/a13-_intersect-4.html */
@@ -196,12 +206,6 @@ public class PathPlanner {
     }
     
     void expandMargin () {
-        /* For all polygons,        */
-        /* For each node,           */
-        /* 1.   calculate K and B   */
-        /* 2.   derive delta-B      */
-        /* 2.5  save the equation   */
-        /* 3.   calculate new (x,y) */
         
         Iterator<RObject> it = m_obj.iterator ();
         
@@ -211,10 +215,13 @@ public class PathPlanner {
         }
     }
     
-    void createPaths () {
+    void createAndSelectPath () {
         
         /* collect all points */
         Vector<Point2D> allPoints = new Vector<Point2D> ();
+        
+        /* init the all points array */
+        allPoints.add (m_start);
         
         Iterator<RObject> it = m_obj.iterator ();
         
@@ -223,12 +230,76 @@ public class PathPlanner {
             allPoints.addAll (obj.getExpandedVertex ());
         }
         
+        allPoints.add (m_end);
+        
         /* pair the points */
+        int s = allPoints.size ();
+        double map[][] = new double[s][s];
+        
+        /* reset the point map table */
+        for (int i = 0; i < s; ++i) {
+            for (int j = 0; j < s; ++j) {
+                if (i == j)
+                    map[i][j] = 0.0;
+                else
+                    map[i][j] = -1.0;
+            }
+        }
+                
+        /* fill the point map table */
+        for (int i = 0; i < s; ++i) {
+            for (int j = i + 1; j < s; ++j) {
+                
+                Point2D src = allPoints.get (i);
+                Point2D dst = allPoints.get (j);
+                
+                if (isDirectlyConnected (src, dst)) {
+                    map[i][j] = distance (src, dst);
+                    map[j][i] = map[i][j];
+                }
+            }
+        }
+        
+        /* do Dijstra's algorithm */
+        selectPath (map, s);
     }
     
     /* Dijstra's algorithm */
-    void selectPath () {
+    void selectPath (double[][] map, int dim) {
         
+        
+        Vector<Integer> idx = new Vector<Integer> ();
+        double[][] tbl = new double[dim][dim];
+        
+        /* initialize the reachable array */
+        idx.add (0);
+        
+        /* initialize Dijstra table */
+        for (int i = 0; i < dim; ++i) {
+            for (int j = 0; j < dim; ++j) {
+                if (i == j)
+                    tbl[i][j] = 0;
+                else
+                    tbl[i][j] = m_inf;
+            }
+        }
+        
+        /* running the dijstra's algo
+        while (true) {
+            
+            for (int i = 0; i < idx.size(); ++i) {
+                
+                int cIdx = idx.get(i);
+                
+                for (int j = 0; j < dim; ++j) {
+                    
+                    if (map[cIdx][j] != -1 && map[cIdx][j] +  < tbl[i][j]) {
+                        tbl[cIdx][j] = tbl[cIdx][
+                    }
+                }
+            }
+        }
+        */
     }
     
     void output () {
@@ -237,8 +308,7 @@ public class PathPlanner {
     public void planPath () {
         
         expandMargin ();
-        createPaths ();
-        selectPath ();
+        createAndSelectPath ();
         output ();
     }
     

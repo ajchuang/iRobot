@@ -1,5 +1,6 @@
 import java.util.Iterator;
 import java.util.ArrayList;
+import java.util.Vector;
 import java.awt.geom.Point2D;
 
 public class RObject {
@@ -50,7 +51,14 @@ public class RObject {
     
     /* TODO: complex function @@" */
     public void expandMargin () {
-        Point2D com = obj.calculateCenterOfMass ();
+        Point2D com = calculateCenterOfMass ();
+        
+        /* For all polygons,        */
+        /* For each node,           */
+        /* 1.   calculate K and B   */
+        /* 2.   derive delta-B      */
+        /* 2.5  save the equation   */
+        /* 3.   calculate new (x,y) */
     
     }
     
@@ -58,10 +66,16 @@ public class RObject {
         
         Vector<Point2D> v = new Vector<Point2D> ();
         
+        /* temp solution: we have not expanded yet */
         Iterator<Point2D> it = m_points.iterator();
+        
+        /*
+        Iterator<Point2D> it = m_expandedPoints.iterator();
+        */
+        
         while (it.hasNext ()) {
             Point2D obj = it.next ();
-            v.add (obj.clone ());
+            v.add ((Point2D)obj.clone ());
         }
         
         return v;

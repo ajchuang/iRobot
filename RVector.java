@@ -4,7 +4,8 @@ public class RVector {
 
     Point2D m_vec;
 
-    public RVector (Point2D begin, Point2D end) {        
+    public RVector (Point2D begin, Point2D end) {
+        m_vec = new Point2D.Double ();        
         m_vec.setLocation (
             (end.getX () - begin.getX ()),
             (end.getY () - begin.getY ())); 
