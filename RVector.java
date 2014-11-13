@@ -6,14 +6,13 @@ public class RVector {
 
     public RVector (Point2D begin, Point2D end) {        
         m_vec.setLocation (
-            (end.getX() - begin.getX()),
-            (end.getY() - begin.getY())); 
+            (end.getX () - begin.getX ()),
+            (end.getY () - begin.getY ())); 
     }
     
     /* inner product: this . b */
     public double dot (RVector b) {
-        
-        return 
+        return
             getVecX () * b.getVecX () + 
             getVecY () * b.getVecY ();  
     }

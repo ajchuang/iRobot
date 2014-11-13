@@ -213,7 +213,17 @@ public class PathPlanner {
     
     void createPaths () {
         
+        /* collect all points */
         Vector<Point2D> allPoints = new Vector<Point2D> ();
+        
+        Iterator<RObject> it = m_obj.iterator ();
+        
+        while (it.hasNext ()) {
+            RObject obj = it.next ();
+            allPoints.addAll (obj.getExpandedVertex ());
+        }
+        
+        /* pair the points */
     }
     
     /* Dijstra's algorithm */
