@@ -178,10 +178,11 @@ public class PathPlanner {
     boolean isDirectlyConnected (Point2D a, Point2D b) {
         
         /* check the workspace first */
+        /* if the line intersects the work space, it is not directly connected */
         if (isLinePassedThroughPolygon (a, b, m_workSpace))
             return false;
         
-        /* check all the obstacles */
+        /* check all the other obstacles */
         Iterator<RObject> it = m_obj.iterator ();
 
         while (it.hasNext ()) {
@@ -201,13 +202,23 @@ public class PathPlanner {
         /* 2.   derive delta-B      */
         /* 2.5  save the equation   */
         /* 3.   calculate new (x,y) */
+        
+        Iterator<RObject> it = m_obj.iterator ();
+        
+        while (it.hasNext ()) {
+            RObject obj = it.next ();
+            obj.expandMargin ();
+        }
     }
     
     void createPaths () {
+        
+        Vector<Point2D> allPoints = new Vector<Point2D> ();
     }
     
+    /* Dijstra's algorithm */
     void selectPath () {
-        /* Dijstra's algorithm */
+        
     }
     
     void output () {

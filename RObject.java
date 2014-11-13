@@ -29,6 +29,44 @@ public class RObject {
         return m_points.get (idx);
     }
     
+    public Point2D calculateCenterOfMass () {
+    
+        double x = 0.0, y = 0.0;
+        
+        Iterator<Point2D> it = m_points.iterator();
+        
+        while (it.hasNext ()) {
+            Point2D obj = it.next ();
+            
+            x += obj.getX ();
+            y += obj.getY ();
+        }
+        
+        /* calculate center of mass */
+        Point2D com = new Point2D.Double ();
+        com.setLocation (x / m_points.size(), y / m_points.size());
+        return com;
+    }
+    
+    /* TODO: complex function @@" */
+    public void expandMargin () {
+        Point2D com = obj.calculateCenterOfMass ();
+    
+    }
+    
+    public Vector<Point2D> getExpandedVertex () {
+        
+        Vector<Point2D> v = new Vector<Point2D> ();
+        
+        Iterator<Point2D> it = m_points.iterator();
+        while (it.hasNext ()) {
+            Point2D obj = it.next ();
+            v.add (obj.clone ());
+        }
+        
+        return v;
+    }
+    
     public void printObject () {
 
         System.out.println ("Object Dump:");
