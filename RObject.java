@@ -51,6 +51,16 @@ public class RObject {
     
     /* TODO: complex function @@" */
     public void expandMargin () {
+        
+        /* temp solution: we have not expanded yet */
+        Iterator<Point2D> it = m_points.iterator();
+        
+        while (it.hasNext ()) {
+            Point2D obj = it.next ();
+            m_expandedPoints.add ((Point2D)obj.clone ());
+        }
+        
+        
         Point2D com = calculateCenterOfMass ();
         
         /* For all polygons,        */
@@ -67,11 +77,7 @@ public class RObject {
         Vector<Point2D> v = new Vector<Point2D> ();
         
         /* temp solution: we have not expanded yet */
-        Iterator<Point2D> it = m_points.iterator();
-        
-        /*
         Iterator<Point2D> it = m_expandedPoints.iterator();
-        */
         
         while (it.hasNext ()) {
             Point2D obj = it.next ();

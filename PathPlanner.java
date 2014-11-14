@@ -62,9 +62,6 @@ public class PathPlanner {
                     
                     obj.setPoint (x, y);
                 }
-                
-                /* verification */
-                obj.printObject ();
             }
             
             br.close ();
@@ -264,10 +261,10 @@ public class PathPlanner {
         selectPath (map, s);
     }
     
-    /* Dijstra's algorithm */
+    /* Run Dijstra's algorithm */
     void selectPath (double[][] map, int dim) {
         
-        
+        /* init local data structures */
         Vector<Integer> idx = new Vector<Integer> ();
         double[][] tbl = new double[dim][dim];
         
@@ -284,7 +281,8 @@ public class PathPlanner {
             }
         }
         
-        /* running the dijstra's algo
+        /* running the dijstra's algo */
+        /*
         while (true) {
             
             for (int i = 0; i < idx.size(); ++i) {
@@ -319,7 +317,8 @@ public class PathPlanner {
             return;
         }
         
-        System.out.println ("input file: " + args[0] + ":" + args[1]);
+        System.out.println ("object config file: "      + args[0]);
+        System.out.println ("start-end config file: "   + args[1]);
         
         PathPlanner pp = new PathPlanner ();
         pp.createObjects (args[0]);
