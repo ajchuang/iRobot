@@ -2,12 +2,14 @@ import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.Vector;
 import java.awt.geom.Point2D;
+import java.lang.Math;
 
 public class RObject {
 
     /* data points */
     ArrayList<Point2D> m_points;
     ArrayList<Point2D> m_expandedPoints;
+
     
     public RObject () {
         m_points = new ArrayList<Point2D> ();
@@ -51,17 +53,108 @@ public class RObject {
     
     /* TODO: complex function @@" */
     public void expandMargin () {
-        
-        /* temp solution: we have not expanded yet */
-        Iterator<Point2D> it = m_points.iterator();
-        
-        while (it.hasNext ()) {
-            Point2D obj = it.next ();
+        double expand_distance = 17.5;
+        ArrayList<LineEquation> edge_expanded; /* x for slope, y for interception and z as a flag if slope is infinity (in which case x stands for the interception of x axis instead of the slope) */
+        edge_expanded = new ArrayList<LineEquation> ();
+        /*while (it.next ().hasNext ()) {
+            Point2D obj_1 = it.next ();
+            Point2D obj_2 = it.next ().next ();
             m_expandedPoints.add ((Point2D)obj.clone ());
+        }*/
+        Point2D point_1, point_2, point_ref;
+
+        double x_1, x_2, x_ref, y_1, y_2, y_ref, xb, xb_expanded, k, b, b_expanded;
+
+        for (int i = 0; i < m_points.size(); i++){
+            point_1 = m_points.get (i);
+            if (i == m_points.size() - 1){
+                point_2 = m_points.get (0);
+                point_ref = m_points.get (1);
+            }
+            else {
+                point_2 = m_points.get (i + 1);
+                point_ref = m_points.get (0);
+            }
+        
+        
+            x_1 = point_1.getX ();
+            y_1 = point_1.getY ();
+            x_2 = point_2.getX ();
+            y_2 = point_2.getY ();
+            x_ref = point_ref.getX ();
+            y_ref = point_ref.getY ();
+
+            /* find the line by the two points, expand and store */
+            if (x_1 == x_2) {
+                xb = x_1;
+                /* check the location of the reference point to decide the moving dircetion */
+                if (x_ref > xb) {
+                    xb_expanded = xb - expand_distance;
+                }
+                else {
+                    xb_expanded = xb + expand_distance;
+                }
+                edge_expanded.add (new LineEquation (0.0, 0.0, true, xb_expanded));
+            }
+            else {
+                k = (y_1 - y_2) / (x_1 - x_2);
+                b = (x_2 * y_1 - x_1 * y_2) / (x_2 - x_1);
+                /* check the location of the reference point to decide the moving dircetion */
+                if (y_ref > k * x_ref - b){
+                    b_expanded = b - expand_distance * Math.sqrt (1 + k * k);
+                }
+                else {
+                    b_expanded = b + expand_distance * Math.sqrt (1 + k * k);
+                }
+
+                edge_expanded.add (new LineEquation (k, b_expanded, false, 0.0));
+            }
         }
         
-        
-        Point2D com = calculateCenterOfMass ();
+        double xb_1, k_2, b_2, x_expanded, y_expanded, xb_2, k_1, b_1;
+        LineEquation edge_1, edge_2;
+        /* find the intersection points */
+        for (int i = 0; i < edge_expanded.size(); i++){
+            edge_1 = edge_expanded.get (i);
+            if (i == edge_expanded.size() - 1){
+                edge_2 = edge_expanded.get (0);
+            }
+            else {
+                edge_2 = edge_expanded.get (i + 1);
+            }
+
+            if (edge_1.getKFLAG () == true){
+                xb_1 = edge_1.getXB ();
+                k_2 = edge_2.getK ();
+                b_2 = edge_2.getB ();
+                x_expanded = xb_1;
+                y_expanded = k_2 * x_expanded + b_2;
+            }
+            else if (edge_2.getKFLAG () == true){
+                xb_2 = edge_2.getXB ();
+                k_1 = edge_1.getK ();
+                b_1 = edge_1.getB ();
+                x_expanded = xb_2;
+                y_expanded = k_1 * x_expanded + b_1;
+            }
+            else {
+                k_1 = edge_1.getK ();
+                b_1 = edge_1.getB ();
+                k_2 = edge_2.getK ();
+                b_2 = edge_2.getB ();
+                x_expanded = (b_2 - b_1) / (k_2 - k_1);
+                y_expanded = k_1 * x_expanded + b_1;
+            }
+            /* store the expanded point */
+            setExpPoint (x_expanded, y_expanded);
+
+        }
+
+
+
+
+
+        /* Point2D com = calculateCenterOfMass ();*/
         
         /* For all polygons,        */
         /* For each node,           */
@@ -76,6 +169,8 @@ public class RObject {
         
         Vector<Point2D> v = new Vector<Point2D> ();
         
+
+
         /* temp solution: we have not expanded yet */
         Iterator<Point2D> it = m_expandedPoints.iterator();
         
