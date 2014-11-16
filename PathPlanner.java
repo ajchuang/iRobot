@@ -390,11 +390,11 @@ public class PathPlanner extends JComponent {
         /* draw the start */
         Point2D new_start = transformCoord (m_start);
         g.setColor (Color.red);
-        g.drawOval ((int)new_start.getX (), (int)new_start.getY (), (int)(35.0 * 0.5), (int)(35.0 * 0.5));
+        g.fillOval ((int)new_start.getX (), (int)new_start.getY (), (int)(35.0 * 0.5), (int)(35.0 * 0.5));
         
         /* draw the end */
         Point2D new_end = transformCoord (m_end);
-        g.drawOval ((int)new_end.getX (), (int)new_end.getY (), (int)(35.0 * 0.5), (int)(35.0 * 0.5));
+        g.fillOval ((int)new_end.getX (), (int)new_end.getY (), (int)(35.0 * 0.5), (int)(35.0 * 0.5));
         
         g.setColor (Color.black);
         

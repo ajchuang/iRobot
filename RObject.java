@@ -173,8 +173,6 @@ public class RObject {
         
         Vector<Point2D> v = new Vector<Point2D> ();
         
-
-
         /* temp solution: we have not expanded yet */
         Iterator<Point2D> it = m_expandedPoints.iterator();
         
@@ -207,7 +205,7 @@ public class RObject {
             );
         } 
         
-        g.setColor (Color.orange);
+        g.setColor (Color.blue);
         
         if (m_expandedPoints.size() != n) {
             System.out.println ("Oooops");
