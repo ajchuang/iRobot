@@ -6,11 +6,21 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.awt.geom.Point2D;
 
-public class PathPlanner {
+/* UI components */
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.geom.Line2D;
+
+import javax.swing.JOptionPane;
+import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
+
+public class PathPlanner extends JComponent {
     
     /* constants */
-    final double m_robotDiameter    = 35.0;
-    final double m_robotRadius      = 35.0 / 2;
+    final double m_robotDiameter    = 0.35;         /* in meters */
+    final double m_robotRadius      = 0.35 / 2.0;   /* in meters */
     final double m_inf              = 9999999999.99;
     
     /* data points */
@@ -22,7 +32,17 @@ public class PathPlanner {
     Point2D.Double m_start;
     Point2D.Double m_end;
     
+    /* assuming that the world coordinate is 17x17 (in meters) */
+    public static Point2D transformCoord (Point2D p) {
+        Point2D nP = new Point2D.Double ((12 - p.getY ()) * 50, (8.5 - p.getX ()) * 50);
+        return nP;
+    }
+    
     public PathPlanner () {
+        
+        super();
+        setPreferredSize (new Dimension(1100, 850));
+        
         m_obj = new ArrayList<RObject> ();
         m_path = new Vector<Point2D> ();
     }
@@ -108,6 +128,9 @@ public class PathPlanner {
         } catch (Exception e) {
             System.out.println (e);
         }
+        
+        System.out.println ("Start  : " + m_start);
+        System.out.println ("End    : " + m_end);
     }
     
     double distance (Point2D src, Point2D dst) {
@@ -195,10 +218,13 @@ public class PathPlanner {
         while (it.hasNext ()) {
             RObject obj = it.next ();
             
-            if (isLinePassedThroughPolygon (a, b, obj))
+            if (isLinePassedThroughPolygon (a, b, obj)) {
+                //System.out.println ("( " + a + " , " + b + " ) NOT connected" );
                 return false;
+            }
         }
         
+        //System.out.println ("( " + a + " , " + b + " ) connected" );
         return true;
     }
     
@@ -257,15 +283,27 @@ public class PathPlanner {
             }
         }
         
+        /* print edge table */
+        for (int i = 0; i < s; ++i) {
+            
+            for (int j = 0; j < s; ++j) {
+                System.out.format ("%2.2f ", map[i][i]);
+                //System.out.print (map[i][j] + " ");
+            }
+            
+            System.out.println ("");
+        }
+        
         /* do Dijstra's algorithm */
-        selectPath (map, s, allPoints);
+        selectPath (map, allPoints);
     }
     
     /* Run Dijstra's algorithm */
     /* '0' has to be the starting point, dim-1 has to be the end point */
-    void selectPath (double[][] edges, int dim, Vector<Point2D> allpoints) {
+    void selectPath (double[][] edges, Vector<Point2D> allpoints) {
         
         /* local variables */
+        int dim = allpoints.size ();
         Vector<Point2D> s = new Vector<Point2D> ();
         Vector<Point2D> q = new Vector<Point2D> (allpoints);
         double[] d = new double[dim];
@@ -296,39 +334,75 @@ public class PathPlanner {
                 }
             }
             
-            if (u != null && min < m_inf)
+            int u_idx = allpoints.indexOf (u);
+            
+            if (u != null && min < m_inf) {
+                System.out.println ("Pt " + u_idx + "\t ( " + u + " ) is selected.");
                 s.add (u);
-            else {
+            } else {
                 System.out.println ("No more min ?");
                 return;
             }
             
-            if (u.equals (allpoints.get (dim - 1)))
-                break;
-            
-            int u_idx = allpoints.indexOf (u);
-            
-            for (int i = 0; i < dim; ++i) {
+            /* update the d table */
+            for (int v_idx = 0; v_idx < dim; ++v_idx) {
                 
-                double len = edges[u_idx][i];
+                double len = edges[u_idx][v_idx];
                 
-                if (d[i] > d[u_idx] + len) {
-                    d[i] = d[u_idx] + len;
-                    prev[i] = u_idx;
+                if (len == -1) {
+                    /* not directly connected */
+                    continue;
+                }
+                
+                if (d[v_idx] > d[u_idx] + len) {
+                    
+                    double old_d = d[v_idx];
+                    d[v_idx] = d[u_idx] + len;
+                    prev[v_idx] = u_idx;
+                    
+                    System.out.println ("Update: " + v_idx + " from " + u_idx + " cost: " + old_d + " --> " + d[v_idx]);
                 }
             }
+            
+            /* Press any key to continue */
+            //System.in.read ();
         }
-    }
-    
-    void output () {
+        
+        int x = dim - 1;
+        
+        for (int i = 0; i < dim; ++i)
+            System.out.println ("Node " + i + " --> prev: " + prev[i]);
     }
     
     public void planPath () {
-        
         expandMargin ();
         createAndSelectPath ();
-        output ();
         System.out.println ("*** completed ***");
+    }
+    
+    
+    public void paintComponent(Graphics g) {
+        
+        /* draw the work space */
+        
+        g.setColor(Color.white);
+        g.fillRect(0, 0, getWidth(), getHeight());
+        Dimension d = getPreferredSize();
+        
+        /* draw the start */
+        
+        
+        /* draw the end */
+        
+        g.setColor(Color.black);
+        
+        /* draw the workspace */
+        m_workSpace.paint (g);
+        
+        /* draw the objects */
+        for (int i = 0; i < m_obj.size (); ++i)
+            m_obj.get(i).paint (g);
+        
     }
     
     public static void main (String args[]) {
@@ -341,9 +415,22 @@ public class PathPlanner {
         System.out.println ("object config file: "      + args[0]);
         System.out.println ("start-end config file: "   + args[1]);
         
-        PathPlanner pp = new PathPlanner ();
-        pp.createObjects (args[0]);
-        pp.setupStartPoint (args[0]);
-        pp.planPath ();
+        final String n0 = new String (args[0]);
+        final String n1 = new String (args[1]);
+        
+        Runnable r = new Runnable() {
+            public void run() {
+                PathPlanner pp = new PathPlanner ();
+                pp.createObjects (n0);
+                pp.setupStartPoint (n1);
+                pp.planPath ();
+                
+                JOptionPane.showMessageDialog(null, pp);
+            }
+        };
+        
+        SwingUtilities.invokeLater(r);
+        
+        
     }
 }

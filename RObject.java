@@ -4,6 +4,16 @@ import java.util.Vector;
 import java.awt.geom.Point2D;
 import java.lang.Math;
 
+/* UI components */
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.geom.Line2D;
+
+import javax.swing.JOptionPane;
+import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
+
 public class RObject {
 
     /* data points */
@@ -53,7 +63,7 @@ public class RObject {
     
     /* TODO: complex function @@" */
     public void expandMargin () {
-        double expand_distance = 17.5;
+        double expand_distance = 0.175;
         ArrayList<LineEquation> edge_expanded; /* x for slope, y for interception and z as a flag if slope is infinity (in which case x stands for the interception of x axis instead of the slope) */
         edge_expanded = new ArrayList<LineEquation> ();
         /*while (it.next ().hasNext ()) {
@@ -69,11 +79,11 @@ public class RObject {
             point_1 = m_points.get (i);
             if (i == m_points.size() - 1){
                 point_2 = m_points.get (0);
-                point_ref = m_points.get (1);
+                point_ref = calculateCenterOfMass ();
             }
             else {
                 point_2 = m_points.get (i + 1);
-                point_ref = m_points.get (0);
+                point_ref = calculateCenterOfMass ();
             }
         
         
@@ -149,20 +159,14 @@ public class RObject {
             setExpPoint (x_expanded, y_expanded);
 
         }
-
-
-
-
-
-        /* Point2D com = calculateCenterOfMass ();*/
         
-        /* For all polygons,        */
-        /* For each node,           */
-        /* 1.   calculate K and B   */
-        /* 2.   derive delta-B      */
-        /* 2.5  save the equation   */
-        /* 3.   calculate new (x,y) */
-    
+        System.out.println ("Original Points: ");
+        for (int i = 0; i < m_expandedPoints.size (); ++i)
+            System.out.println ("\t" + m_points.get(i));
+        
+        System.out.println ("Expanded Points: ");
+        for (int i = 0; i < m_expandedPoints.size (); ++i)
+            System.out.println ("\t" + m_expandedPoints.get(i));
     }
     
     public Vector<Point2D> getExpandedVertex () {
@@ -180,6 +184,48 @@ public class RObject {
         }
         
         return v;
+    }
+    
+    public void paint (Graphics g) {
+        
+        Point2D pt_0, pt_1;
+        int n = m_points.size ();
+        
+        g.setColor (Color.black);
+    
+        for (int i = 0; i < n; ++i) {
+            
+            pt_0 = PathPlanner.transformCoord (m_points.get (i));
+            pt_1 = PathPlanner.transformCoord (m_points.get ((i + 1) % n));
+            
+            System.out.println ("Drawing " + pt_0 + " to " + pt_1);
+            g.drawLine (
+                (int) pt_0.getX (),
+                (int) pt_0.getY (),
+                (int) pt_1.getX (),
+                (int) pt_1.getY ()
+            );
+        } 
+        
+        g.setColor (Color.orange);
+        
+        if (m_expandedPoints.size() != n) {
+            System.out.println ("Oooops");
+            return;
+        }
+        
+        for (int i = 0; i < n; ++i) {
+            
+            pt_0 = PathPlanner.transformCoord (m_expandedPoints.get (i));
+            pt_1 = PathPlanner.transformCoord (m_expandedPoints.get ((i + 1) % n));
+            
+            g.drawLine (
+                (int) pt_0.getX (),
+                (int) pt_0.getY (),
+                (int) pt_1.getX (),
+                (int) pt_1.getY ()
+            );
+        }
     }
     
     public void printObject () {
