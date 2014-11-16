@@ -258,30 +258,20 @@ public class PathPlanner {
         }
         
         /* do Dijstra's algorithm */
-        selectPath (map, s);
+        selectPath (map, s, allPoints);
     }
     
     /* Run Dijstra's algorithm */
-    void selectPath (double[][] map, int dim) {
+    void selectPath (double[][] edges, int dim, Vector<Point2D> points) {
         
-        /* init local data structures */
-        Vector<Integer> idx = new Vector<Integer> ();
-        double[][] tbl = new double[dim][dim];
-        
-        /* initialize the reachable array */
-        idx.add (0);
-        
-        /* initialize Dijstra table */
-        for (int i = 0; i < dim; ++i) {
-            for (int j = 0; j < dim; ++j) {
-                if (i == j)
-                    tbl[i][j] = 0;
-                else
-                    tbl[i][j] = m_inf;
-            }
-        }
+        /* selected vertex */
+        Vector<Point2D> sv = new Vector<Point2D> ();
         
         /* running the dijstra's algo */
+        while (points.size () > 0) {
+        }
+        
+        
         /*
         while (true) {
             
