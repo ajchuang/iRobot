@@ -262,32 +262,62 @@ public class PathPlanner {
     }
     
     /* Run Dijstra's algorithm */
-    void selectPath (double[][] edges, int dim, Vector<Point2D> points) {
+    /* '0' has to be the starting point, dim-1 has to be the end point */
+    void selectPath (double[][] edges, int dim, Vector<Point2D> allpoints) {
         
-        /* selected vertex */
-        Vector<Point2D> sv = new Vector<Point2D> ();
+        /* local variables */
+        Vector<Point2D> s = new Vector<Point2D> ();
+        Vector<Point2D> q = new Vector<Point2D> (allpoints);
+        double[] d = new double[dim];
+        int[] prev = new int[dim];
         
-        /* running the dijstra's algo */
-        while (points.size () > 0) {
+        /* init d and prev */
+        for (int i = 0; i < dim; ++i) {
+            d[i] = m_inf;
+            prev[i] = -1;
         }
         
+        d[0] = 0.0;
         
-        /*
-        while (true) {
+        /* running the dijstra's algo */
+        while (q.size () > 0) {
             
-            for (int i = 0; i < idx.size(); ++i) {
+            Point2D u = null; //extract_min (q);
+            double min = m_inf;
+            int minIdx = -1;
+            
+            /* extract min */
+            for (int i = 0; i < q.size (); ++i) {
+                if (d[i] < min) {
+                    minIdx = i;
+                    min = d[i];
+                    u = q.get (i);
+                    q.remove (u);
+                }
+            }
+            
+            if (u != null && min < m_inf)
+                s.add (u);
+            else {
+                System.out.println ("No more min ?");
+                return;
+            }
+            
+            if (u.equals (allpoints.get (dim - 1)))
+                break;
+            
+            int u_idx = allpoints.indexOf (u);
+            
+            for (int i = 0; i < dim; ++i) {
                 
-                int cIdx = idx.get(i);
+                double len = edges[u_idx][i];
                 
-                for (int j = 0; j < dim; ++j) {
-                    
-                    if (map[cIdx][j] != -1 && map[cIdx][j] +  < tbl[i][j]) {
-                        tbl[cIdx][j] = tbl[cIdx][
-                    }
+                if (d[i] > d[u_idx] + len) {
+                    d[i] = d[u_idx] + len;
+                    prev[i] = u_idx;
                 }
             }
         }
-        */
     }
     
     void output () {
@@ -298,6 +328,7 @@ public class PathPlanner {
         expandMargin ();
         createAndSelectPath ();
         output ();
+        System.out.println ("*** completed ***");
     }
     
     public static void main (String args[]) {
