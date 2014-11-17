@@ -102,7 +102,7 @@ public class RObject {
             y_ref = point_ref.getY ();
 
             /* find the line by the two points, expand and store */
-            if (Math.abs(x_1 - x_2) < 0.03) {
+            if (Math.abs(x_1 - x_2) == 0) {
                 xb = x_1;
                 /* check the location of the reference point to decide the moving dircetion */
                 if (x_ref > xb) {
@@ -160,7 +160,7 @@ public class RObject {
                 b_1 = edge_1.getB ();
                 k_2 = edge_2.getK ();
                 b_2 = edge_2.getB ();
-                x_expanded = (b_2 - b_1) / (k_2 - k_1);
+                x_expanded = (b_2 - b_1) / (k_1 - k_2);
                 y_expanded = k_1 * x_expanded + b_1;
             }
             /* store the expanded point */
