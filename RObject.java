@@ -218,7 +218,7 @@ public class RObject {
             );
         } 
         
-        g.setColor (Color.blue);
+        g.setColor (Color.black);
         
         if (m_expandedPoints.size() != n) {
             System.out.println ("Oooops");

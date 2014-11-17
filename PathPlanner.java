@@ -652,7 +652,7 @@ public class PathPlanner extends JComponent {
                     
             g.setColor (Color.red);
             Graphics2D g2 = (Graphics2D) g;
-            g2.setStroke(new BasicStroke(3));
+            g2.setStroke (new BasicStroke (5));
             g2.drawLine (
                 (int) src.getX (),
                 (int) src.getY (),
