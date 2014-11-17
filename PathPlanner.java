@@ -4,6 +4,7 @@ import java.util.Vector;
 import java.util.StringTokenizer;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.PrintWriter;
 import java.awt.geom.Point2D;
 
 /* UI components */
@@ -544,6 +545,47 @@ public class PathPlanner extends JComponent {
         
         for (int i = 0; i < dim; ++i)
             System.out.println ("Node " + i + " --> prev: " + prev[i]);
+            
+        int nxtPoint = prev[dim - 1];
+        int cnt = 0;
+        Vector<Integer> revPath = new Vector<Integer> ();
+        revPath.add (Integer.valueOf (dim - 1));
+        revPath.add (Integer.valueOf (nxtPoint));
+        log ("Prev step = " + nxtPoint);
+        
+        while (nxtPoint != -1) {
+            nxtPoint = prev[nxtPoint];
+            
+            if (nxtPoint == -1)
+                break;
+            
+            revPath.add (Integer.valueOf (nxtPoint));
+            log ("Prev step = " + nxtPoint);
+            
+            cnt++;
+            
+            if (cnt > dim) {
+                log ("no valid path");
+                return;
+            }
+        }
+        
+        try {
+            PrintWriter writer = new PrintWriter("route.txt", "US-ASCII");
+            
+            // output the actual path
+            for (int i = revPath.size() - 1; i >= 0; --i) {
+                Point2D p = allpoints.get(revPath.get(i).intValue());
+                m_path.add (p);
+                log ("Path: " + p);
+                
+                writer.println (p.getX () + " " + p.getY ());
+            }
+            
+            writer.close();
+        } catch (Exception e) {
+            log ("Oooops: " + e);
+        }
     }
     
     public void planPath () {
@@ -601,6 +643,18 @@ public class PathPlanner extends JComponent {
             }
         }
         
+        /* draw the final path */
+        for (int i = 0; i < m_path.size () - 1; ++i) {
+            Point2D src = transformCoord (m_path.get (i));
+            Point2D dst = transformCoord (m_path.get (i + 1));
+                    
+            g.setColor (Color.red);
+            g.drawLine (
+                (int) src.getX (),
+                (int) src.getY (),
+                (int) dst.getX (),
+                (int) dst.getY ());
+        }
     }
     
     public static void main (String args[]) {

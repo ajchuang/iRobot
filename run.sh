@@ -4,6 +4,7 @@ echo terminal reset
 
 echo cleaning
 rm *.class
+rm route.txt
 
 echo compiling
 javac *.java
