@@ -12,16 +12,16 @@ public class RVector {
     }
     
     /* inner product: this . b */
-    public double dot (RVector b) {
+    static public double dot (RVector a, RVector b) {
         return
-            getVecX () * b.getVecX () + 
-            getVecY () * b.getVecY ();  
+            a.getVecX () * b.getVecX () + 
+            a.getVecY () * b.getVecY ();  
     }
     
-    public double perp (RVector b) {
+    static public double perp (RVector a, RVector b) {
         return 
-            getVecX () * b.getVecY () - 
-            getVecY () * b.getVecX ();
+            a.getVecX () * b.getVecY () - 
+            a.getVecY () * b.getVecX ();
     }
 
     public double getVecX () {

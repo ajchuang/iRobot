@@ -27,6 +27,8 @@ public class PathPlanner extends JComponent {
     RObject m_workSpace;
     ArrayList<RObject> m_obj;
     Vector<Point2D> m_path;
+    double[][] m_map;
+    Vector<Point2D> m_allpoints;
 
     /* 2 special points: start & end */
     Point2D.Double m_start;
@@ -36,6 +38,10 @@ public class PathPlanner extends JComponent {
     public static Point2D transformCoord (Point2D p) {
         Point2D nP = new Point2D.Double ((12 - p.getY ()) * 50, (8.5 - p.getX ()) * 50);
         return nP;
+    }
+    
+    void log (String s) {
+        System.out.println (s);
     }
     
     public PathPlanner () {
@@ -134,58 +140,196 @@ public class PathPlanner extends JComponent {
     }
     
     double distance (Point2D src, Point2D dst) {
-        return Math.sqrt (
+        double dist = Math.sqrt (
                     (dst.getX () - src.getX ()) * (dst.getX () - src.getX ()) + 
-                    (dst.getY () - src.getY ()) * (dst.getY () - src.getY ()));  
+                    (dst.getY () - src.getY ()) * (dst.getY () - src.getY ()));
+        return dist;
     }
     
-    /* use the http://geomalgorithms.com/a13-_intersect-4.html */
-    /*  
-        Copyright 2001 softSurfer, 2012 Dan Sunday
-        This code may be freely used and modified for any purpose
-        providing that this copyright notice is included with it.
-        SoftSurfer makes no warranty for this code, and cannot be held
-        liable for any real or imagined damage resulting from its use.
-        Users of this code must verify correctness for their application.
-    */
+    // Ref: Modified from a c++ algo: http://geomalgorithms.com/a05-_intersect-1.html#intersect2D_2Segments()
+    // calculate if (a,b) and (c,d) have intersection
+    // return (m_inf, m_inf) = completely the same line
+    // return null = no solution
+    // return point = valid solution
+    Point2D calculateIntersection (Point2D s1_p0, Point2D s1_p1, Point2D s2_p0, Point2D s2_p1) {
+
+        /* they are the same line */
+        if ((s1_p0.equals (s2_p0) && s1_p1.equals (s2_p1)) || 
+            (s1_p0.equals (s2_p1) && s1_p1.equals (s2_p0)))
+            return new Point2D.Double (m_inf, m_inf);
+            
+        /* both lines are connecting at the end - not connected */
+        if (s1_p0.equals (s2_p0) || s1_p0.equals (s2_p1) ||
+            s1_p1.equals (s2_p0) || s1_p1.equals (s2_p1))
+            return null;
+            
+        RVector u = new RVector (s1_p0, s1_p1);
+        RVector v = new RVector (s2_p0, s2_p1);
+        RVector w = new RVector (s2_p0, s1_p0);
+        double D = RVector.perp (u, v);
+        
+        // test if  they are parallel (includes either being a point)
+        // S1 and S2 are parallel
+        if (Math.abs(D) < 0.01) {
+            if (RVector.perp(u,w) != 0 || RVector.perp(v,w) != 0)  {
+                return null;
+            }
+        }
+        
+        // the segments are skew and may intersect in a point
+        // get the intersect parameter for S1
+        double sI = RVector.perp (v,w) / D;
+        if (sI < 0 || sI > 1)                // no intersect with S1
+            return null;
+
+        // get the intersect parameter for S2
+        double tI = RVector.perp(u,w) / D;
+        if (tI < 0 || tI > 1)                // no intersect with S2
+            return null;
+
+        Point2D p = new Point2D.Double ();
+        p.setLocation (s1_p0.getX() + sI * u.getVecX(), s1_p0.getY() + sI * u.getVecY());
+        return p;
+        
+    }
+    
+    boolean isPointInPolygon (Point2D p, RObject plgn) {
+        
+        int cn = 0;
+        int npt = plgn.numPoints();
+        
+        for (int i = 0; i < npt; ++i) {
+            
+            int next = (i + 1) % npt;
+            Point2D v_i     = plgn.getExpPointIdx (i);
+            Point2D v_i_1   = plgn.getExpPointIdx (next);
+            
+            if (((v_i.getY () <  p.getY ()) && (v_i_1.getY () >  p.getY ())) || 
+                ((v_i.getY () >  p.getY ()) && (v_i_1.getY () <  p.getY ()))) {
+            
+                // compute  the actual edge-ray intersect x-coordinate
+                double vt = (double)(p.getY () - v_i.getY ()) / (v_i_1.getY () - v_i.getY ());
+                
+                if (p.getX () < (v_i.getX () + vt * (v_i_1.getX () - v_i.getX ())))
+                    ++cn;
+            }
+        }
+        
+        if (cn % 2 == 0)
+            return false;
+        else {
+            log ("Point " + p + " is in Polygon " + plgn);
+            return true;
+        }
+    }
+        
+    /* this is v2 */
     boolean isLinePassedThroughPolygon (Point2D a, Point2D b, RObject plgn) {
         
-        double tE = 0;              // the maximum entering segment parameter
-        double tL = 1;              // the minimum leaving segment parameter
-        double t, N, D;             // intersect parameter t = N / D
-        RVector dS = new RVector (a, b);          // the  segment direction vector
-        RVector e;                   // edge vector
+        int npt = plgn.numPoints();
         
+        // check if the points are in the inside of the polygon
+        for (int i = 0; i < npt; i++) {
+            if (plgn != m_workSpace) {
+                if (isPointInPolygon (a, plgn) == true || 
+                    isPointInPolygon (b, plgn) == true)
+                    return true;
+            }
+        }
+        
+        for (int i = 0; i < npt; i++) {
+            int next = (i + 1) % npt;
+            Point2D v_i = plgn.getPointIdx (i);
+            Point2D v_i_1 = plgn.getPointIdx (next);
+            
+            Point2D intr = calculateIntersection (a, b, v_i, v_i_1);
+            
+            if (intr == null)
+                continue;
+            else if (intr.getX () == m_inf && intr.getY () == m_inf)
+                return false;
+            else {
+                log ("Intersection between ( " + a + ":" + b + " ) and ( " + v_i + ":" + v_i_1 + " ) is " + intr);
+                return true;
+            }
+        }
+        
+        for (int i = 0; i < npt; i++) {
+            int next = (i + 1) % npt;
+            Point2D v_i = plgn.getExpPointIdx (i);
+            Point2D v_i_1 = plgn.getExpPointIdx (next);
+            
+            Point2D intr = calculateIntersection (a, b, v_i, v_i_1);
+            
+            if (intr == null)
+                continue;
+            else if (intr.getX () == m_inf && intr.getY () == m_inf)
+                return false;
+            else {
+                log ("Intersection between ( " + a + ":" + b + " ) and ( " + v_i + ":" + v_i_1 + " ) is " + intr);
+                return true;
+            }
+        }
+        
+        /* hit nothing */
+        return false;
+    }
+    
+    /* This is buggy */
+    // Ref: modify the C version from http://geomalgorithms.com/a13-_intersect-4.html
+    // a: src
+    // b: dst
+    boolean isLinePassedThroughPolygon_v1 (Point2D a, Point2D b, RObject plgn) {
+        
+        double tE = 0;                  // the maximum entering segment parameter
+        double tL = 1;                  // the minimum leaving segment parameter
+        double t, N, D;                 // intersect parameter t = N / D
+        RVector dS = new RVector (a, b);          // the  segment direction vector
+        RVector e;                      // edge vector
+        RVector ne;                     // outgoing normal
+        
+        log ("Running test for " + a + ":" + b);
+        
+        /* we simply do not allow this case */
         if (a.equals (b)) {
             System.out.println ("[Error] 2 points coincide: " + a + ":" + b);
             return false;
         }
         
-        for (int i = 0; i < plgn.numPoints (); i++) {
+        int npt = plgn.numPoints();
+        
+        for (int i = 0; i < npt; i++) {
             
-            int next = (i + 1) % plgn.numPoints ();
-            Point2D cVertex = plgn.getExpPointIdx (i);
-            Point2D nVertex = plgn.getExpPointIdx (next); 
+            int next = (i + 1) % npt;
             
-            e = new RVector (cVertex, nVertex);
+            Point2D v_i = plgn.getExpPointIdx (i);
+            Point2D v_i_1 = plgn.getExpPointIdx (next);
             
-            N = e.perp (new RVector (a, cVertex)); // = -dot(ne, S.P0 - V[i])
-            D = (-1) * e.perp (dS);       // = dot(ne, dS)
+            log ("Testing: " + v_i + ":" + v_i_1); 
             
-            /* assuming that abs is very small, they are parallel */
-            if (Math.abs (D) < 0.000001) {
-                if (N < 0)              // P0 is outside this edge, so
-                    return false;       // S is outside the polygon
-                else                    // S cannot cross this edge, so
-                    continue;           // ignore this edge
+            e   = new RVector (v_i, v_i_1);
+            N = RVector.perp (e, new RVector (v_i, a)); // = -dot(ne, S.P0 - V[i])
+            D = (-1) * RVector.perp (e, dS);       // = dot(ne, dS)
+            
+            log ("N: " + N + " D: " + D);
+            
+            // handling the special case that the segment is parallel to the edge.
+            if (Math.abs (D) < 0.01) {
+                
+                // 0.0 and -0.0 are different
+                if (N <= 0.0 || N <= -0.0)  // P0 is outside this edge, so
+                    return false;           // S is outside the polygon
+                else                        // S cannot cross this edge, so
+                    continue;               // ignore this edge
             }
 
             t = N / D;
+            log ("t: " + t + " tE: " + tE + " tL: " + tL);
         
             if (D < 0) {            // segment S is entering across this edge
                 if (t > tE) {       // new max tE
                     tE = t;
-                 
+                    
                     if (tE > tL)   // S enters after leaving polygon
                         return false;
                 }
@@ -198,6 +342,40 @@ public class PathPlanner extends JComponent {
                 }
             }
         }
+        
+        if (tE == tL && (tE == 1.0 || tE == 0.0)) {
+            log ("Hit endpoint only, pass");
+            return false;
+        }
+        
+        // calculate the length of the line segment
+        Point2D intersect_a = new Point2D.Double (a.getX () + tE * dS.getVecX (), a.getY () + tE * dS.getVecY ());
+        Point2D intersect_b = new Point2D.Double (a.getX () + tL * dS.getVecX (), a.getY () + tL * dS.getVecY ());
+
+/*
+        if ((intersect_a.getX () > a.getX() && intersect_a.getX() > b.getX()) ||
+            (intersect_a.getX () < a.getX() && intersect_a.getX() < b.getX()) ||
+            (intersect_a.getY () > a.getY() && intersect_a.getY() > b.getY()) ||
+            (intersect_a.getY () < a.getY() && intersect_a.getY() < b.getY())) {
+            
+            log("Impossible intersection A ?");
+            return false;
+        }
+        
+        if ((intersect_b.getX () > a.getX() && intersect_b.getX() > b.getX()) ||
+            (intersect_b.getX () < a.getX() && intersect_b.getX() < b.getX()) ||
+            (intersect_b.getY () > a.getY() && intersect_b.getY() > b.getY()) ||
+            (intersect_b.getY () < a.getY() && intersect_b.getY() < b.getY())) {
+            
+            log("Impossible intersection B ?");
+            return false;
+        }
+*/            
+                    
+        if (intersect_a.equals (intersect_b))
+            return false;
+
+        log ("intersect: " + intersect_a + ":" + intersect_b);
 
         return true;
     }
@@ -209,22 +387,22 @@ public class PathPlanner extends JComponent {
         
         /* check the workspace first */
         /* if the line intersects the work space, it is not directly connected */
-        if (isLinePassedThroughPolygon (a, b, m_workSpace))
+        if (isLinePassedThroughPolygon (a, b, m_workSpace)) {
+            System.out.println ("Hit the boundary: " + a + ":" + b);
             return false;
+        }
         
         /* check all the other obstacles */
-        Iterator<RObject> it = m_obj.iterator ();
-
-        while (it.hasNext ()) {
-            RObject obj = it.next ();
+        for (int i=0; i<m_obj.size(); ++i) {
+            
+            RObject obj = m_obj.get (i);
             
             if (isLinePassedThroughPolygon (a, b, obj)) {
-                //System.out.println ("( " + a + " , " + b + " ) NOT connected" );
+                System.out.println ("Line " + a + ":" + b + " hits obj " + i);
                 return false;
             }
         }
         
-        //System.out.println ("( " + a + " , " + b + " ) connected" );
         return true;
     }
     
@@ -241,61 +419,55 @@ public class PathPlanner extends JComponent {
     void createAndSelectPath () {
         
         /* collect all points */
-        Vector<Point2D> allPoints = new Vector<Point2D> ();
+        m_allpoints = new Vector<Point2D> ();
         
         /* init the all points array */
-        allPoints.add (m_start);
+        m_allpoints.add (m_start);
         
         Iterator<RObject> it = m_obj.iterator ();
         
         while (it.hasNext ()) {
             RObject obj = it.next ();
-            allPoints.addAll (obj.getExpandedVertex ());
+            m_allpoints.addAll (obj.getExpandedVertex ());
         }
         
-        allPoints.add (m_end);
+        m_allpoints.add (m_end);
         
         /* pair the points */
-        int s = allPoints.size ();
-        double map[][] = new double[s][s];
+        int s = m_allpoints.size ();
+        m_map = new double[s][s];
         
         /* reset the point map table */
         for (int i = 0; i < s; ++i) {
             for (int j = 0; j < s; ++j) {
                 if (i == j)
-                    map[i][j] = 0.0;
+                    m_map[i][j] = 0.0;
                 else
-                    map[i][j] = -1.0;
+                    m_map[i][j] = -1.0;
             }
         }
                 
         /* fill the point map table */
         for (int i = 0; i < s; ++i) {
-            for (int j = i + 1; j < s; ++j) {
+            for (int j = 0; j < s; ++j) {
                 
-                Point2D src = allPoints.get (i);
-                Point2D dst = allPoints.get (j);
+                if (i == j)
+                    continue;
+                
+                Point2D src = m_allpoints.get (i);
+                Point2D dst = m_allpoints.get (j);
                 
                 if (isDirectlyConnected (src, dst)) {
-                    map[i][j] = distance (src, dst);
-                    map[j][i] = map[i][j];
+                    System.out.println (src + ":" + dst + " is connected");
+                    m_map[i][j] = distance (src, dst);
+                } else {
+                    m_map[i][j] = -1.0;
                 }
             }
         }
         
-        /* print edge table */
-        for (int i = 0; i < s; ++i) {
-            
-            for (int j = 0; j < s; ++j) {
-                System.out.format ("%2.2f ", map[i][i]);
-                //System.out.print (map[i][j] + " ");
-            }
-            
-            System.out.println ("");
-        }
-        
         /* do Dijstra's algorithm */
-        selectPath (map, allPoints);
+        selectPath (m_map, m_allpoints);
     }
     
     /* Run Dijstra's algorithm */
@@ -390,21 +562,44 @@ public class PathPlanner extends JComponent {
         /* draw the start */
         Point2D new_start = transformCoord (m_start);
         g.setColor (Color.green);
-        g.fillOval ((int)new_start.getX (), (int)new_start.getY (), (int)(35.0 * 0.5), (int)(35.0 * 0.5));
+        g.fillOval (
+            (int)(new_start.getX () - 17.5 * 0.5),
+            (int)(new_start.getY () - 17.5 * 0.5),
+            (int)(35.0 * 0.5), 
+            (int)(35.0 * 0.5));
         
         /* draw the end */
         Point2D new_end = transformCoord (m_end);
         g.setColor (Color.red);
-        g.fillOval ((int)new_end.getX (), (int)new_end.getY (), (int)(35.0 * 0.5), (int)(35.0 * 0.5));
-        
-        g.setColor (Color.black);
+        g.fillOval (
+            (int)(new_end.getX () - 17.5 * 0.5),
+            (int)(new_end.getY () - 17.5 * 0.5),
+            (int)(35.0 * 0.5),
+            (int)(35.0 * 0.5));
         
         /* draw the workspace */
-        m_workSpace.paint (g);
+        m_workSpace.paint (g, Color.green);
         
         /* draw the objects */
         for (int i = 0; i < m_obj.size (); ++i)
-            m_obj.get(i).paint (g);
+            m_obj.get(i).paint (g, Color.cyan);
+            
+        /* draw the m_map */
+        for (int i = 0; i < m_allpoints.size (); ++i) {
+            for (int j = 0; j < m_allpoints.size (); ++j) {
+                if (m_map[i][j] != -1.0) {
+                    Point2D src = transformCoord (m_allpoints.get (i));
+                    Point2D dst = transformCoord (m_allpoints.get (j));
+                    
+                    g.setColor (Color.black);
+                    g.drawLine (
+                        (int) src.getX (),
+                        (int) src.getY (),
+                        (int) dst.getX (),
+                        (int) dst.getY ());
+                }
+            }
+        }
         
     }
     

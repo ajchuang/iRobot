@@ -111,7 +111,7 @@ public class RObject {
                 else {
                     xb_expanded = xb + expand_distance;
                 }
-                System.out.println("!!!XB: " + xb_expanded);
+                //System.out.println("!!!XB: " + xb_expanded);
                 edge_expanded.add (new LineEquation (0.0, 0.0, true, xb_expanded));
             }
             else {
@@ -124,7 +124,7 @@ public class RObject {
                 else {
                     b_expanded = b + expand_distance * Math.sqrt (1 + k * k);
                 }
-                System.out.println("!!!K AND B:" + k + " , " + b_expanded);
+                //System.out.println("!!!K AND B:" + k + " , " + b_expanded);
                 edge_expanded.add (new LineEquation (k, b_expanded, false, 0.0));
             }
         }
@@ -165,9 +165,12 @@ public class RObject {
             }
             /* store the expanded point */
             setExpPoint (x_expanded, y_expanded);
+            
+            /*
             System.out.println("******* EXPANDED POINTS: *******");
             System.out.println(x_expanded);
             System.out.println(y_expanded);
+            */
         }
         
         System.out.println ("Original Points: ");
@@ -194,19 +197,19 @@ public class RObject {
         return v;
     }
     
-    public void paint (Graphics g) {
+    public void paint (Graphics g, Color c) {
         
         Point2D pt_0, pt_1;
         int n = m_points.size ();
         
-        g.setColor (Color.black);
+        g.setColor (c);
     
         for (int i = 0; i < n; ++i) {
             
             pt_0 = PathPlanner.transformCoord (m_points.get (i));
             pt_1 = PathPlanner.transformCoord (m_points.get ((i + 1) % n));
             
-            System.out.println ("Drawing " + pt_0 + " to " + pt_1);
+            //System.out.println ("Drawing " + pt_0 + " to " + pt_1);
             g.drawLine (
                 (int) pt_0.getX (),
                 (int) pt_0.getY (),
@@ -234,6 +237,10 @@ public class RObject {
                 (int) pt_1.getY ()
             );
         }
+    }
+    
+    public String toString () {
+        return calculateCenterOfMass ().toString ();
     }
     
     public void printObject () {

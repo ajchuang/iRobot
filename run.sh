@@ -1,4 +1,7 @@
 #!/bin/bash
+echo -e \\033c
+echo terminal reset
+
 echo cleaning
 rm *.class
 
