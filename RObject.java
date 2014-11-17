@@ -42,6 +42,13 @@ public class RObject {
         return m_points.get (idx);
     }
     
+    public Point2D getExpPointIdx (int idx) {
+        if (m_expandedPoints.size () == 0)
+            return m_points.get (idx);
+        else
+            return m_expandedPoints.get (idx);
+    }
+    
     public Point2D calculateCenterOfMass () {
     
         double x = 0.0, y = 0.0;
@@ -95,7 +102,7 @@ public class RObject {
             y_ref = point_ref.getY ();
 
             /* find the line by the two points, expand and store */
-            if (x_1 == x_2) {
+            if (Math.abs(x_1 - x_2) < 0.03) {
                 xb = x_1;
                 /* check the location of the reference point to decide the moving dircetion */
                 if (x_ref > xb) {
@@ -104,19 +111,20 @@ public class RObject {
                 else {
                     xb_expanded = xb + expand_distance;
                 }
+                System.out.println("!!!XB: " + xb_expanded);
                 edge_expanded.add (new LineEquation (0.0, 0.0, true, xb_expanded));
             }
             else {
                 k = (y_1 - y_2) / (x_1 - x_2);
                 b = (x_2 * y_1 - x_1 * y_2) / (x_2 - x_1);
                 /* check the location of the reference point to decide the moving dircetion */
-                if (y_ref > k * x_ref - b){
+                if (y_ref > k * x_ref + b){
                     b_expanded = b - expand_distance * Math.sqrt (1 + k * k);
                 }
                 else {
                     b_expanded = b + expand_distance * Math.sqrt (1 + k * k);
                 }
-
+                System.out.println("!!!K AND B:" + k + " , " + b_expanded);
                 edge_expanded.add (new LineEquation (k, b_expanded, false, 0.0));
             }
         }
@@ -157,7 +165,9 @@ public class RObject {
             }
             /* store the expanded point */
             setExpPoint (x_expanded, y_expanded);
-
+            System.out.println("******* EXPANDED POINTS: *******");
+            System.out.println(x_expanded);
+            System.out.println(y_expanded);
         }
         
         System.out.println ("Original Points: ");
