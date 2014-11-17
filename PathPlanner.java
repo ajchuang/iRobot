@@ -11,6 +11,8 @@ import java.awt.geom.Point2D;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.BasicStroke;
 import java.awt.geom.Line2D;
 
 import javax.swing.JOptionPane;
@@ -649,7 +651,9 @@ public class PathPlanner extends JComponent {
             Point2D dst = transformCoord (m_path.get (i + 1));
                     
             g.setColor (Color.red);
-            g.drawLine (
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setStroke(new BasicStroke(3));
+            g2.drawLine (
                 (int) src.getX (),
                 (int) src.getY (),
                 (int) dst.getX (),
