@@ -195,7 +195,7 @@ public class PathPlanner extends JComponent {
         int cn = 0;
         int npt = plgn.numPoints();
         
-        if (true) {
+        if (false) {
             
             double max_x = -100.0, max_y = -100.0, min_x = 100.0, min_y = 100.0;
             
@@ -529,7 +529,7 @@ public class PathPlanner extends JComponent {
         
         /* draw the start */
         Point2D new_start = transformCoord (m_start);
-        g.setColor (Color.yellow);
+        g.setColor (Color.green);
         g.fillOval (
             (int)(new_start.getX () - 17.5 * 0.5),
             (int)(new_start.getY () - 17.5 * 0.5),
