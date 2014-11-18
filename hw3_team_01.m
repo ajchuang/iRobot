@@ -1061,8 +1061,8 @@ function init_const ()
     % end
     
     % test-related constants
-    c_SimMode           = true;
-    c_MacBook           = true;
+    c_SimMode           = false;
+    c_MacBook           = false;
     
     % environment-related constants
     c_FastFwdVel        = 0.05;
@@ -1084,7 +1084,7 @@ function init_const ()
             c_VerySlowFwdVel = 0.025;
         else
             % machine dependent params
-            c_PortName      = 4;
+            c_PortName      = 3;
             c_TestingOn     = true;
             c_SlowFwdVel    = 0.05;
             c_TurnSpeed     = 0.05;
