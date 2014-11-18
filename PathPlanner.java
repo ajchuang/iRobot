@@ -529,7 +529,7 @@ public class PathPlanner extends JComponent {
         
         /* draw the start */
         Point2D new_start = transformCoord (m_start);
-        g.setColor (Color.green);
+        g.setColor (Color.yellow);
         g.fillOval (
             (int)(new_start.getX () - 17.5 * 0.5),
             (int)(new_start.getY () - 17.5 * 0.5),
@@ -546,11 +546,14 @@ public class PathPlanner extends JComponent {
             (int)(35.0 * 0.5));
         
         /* draw the workspace */
-        m_workSpace.paint (g, Color.green);
+        Graphics2D g22 = (Graphics2D) g;
+        g22.setStroke (new BasicStroke (5));
+        m_workSpace.paint (g22, Color.gray);
         
+        g22.setStroke (new BasicStroke (1));
         /* draw the objects */
         for (int i = 0; i < m_obj.size (); ++i)
-            m_obj.get(i).paint (g, Color.cyan);
+            m_obj.get(i).paint (g22, Color.cyan);
             
         /* draw the m_map */
         for (int i = 0; i < m_allpoints.size (); ++i) {
@@ -559,8 +562,8 @@ public class PathPlanner extends JComponent {
                     Point2D src = transformCoord (m_allpoints.get (i));
                     Point2D dst = transformCoord (m_allpoints.get (j));
                     
-                    g.setColor (Color.black);
-                    g.drawLine (
+                    g22.setColor (Color.black);
+                    g22.drawLine (
                         (int) src.getX (),
                         (int) src.getY (),
                         (int) dst.getX (),
@@ -574,10 +577,9 @@ public class PathPlanner extends JComponent {
             Point2D src = transformCoord (m_path.get (i));
             Point2D dst = transformCoord (m_path.get (i + 1));
                     
-            g.setColor (Color.red);
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setStroke (new BasicStroke (5));
-            g2.drawLine (
+            g22.setColor (Color.red);
+            g22.setStroke (new BasicStroke (5));
+            g22.drawLine (
                 (int) src.getX (),
                 (int) src.getY (),
                 (int) dst.getX (),
