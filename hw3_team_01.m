@@ -73,8 +73,12 @@ function finalRad= hw3_team_01 (serPort)
     end
     
     % do bug to find the wall
-    reset_bug_params ([4.0, 0.0]);
-    turn_to_target (serPort, [4.0, 0.0]);
+    reset_bug_params ([6.0, 0.0]);
+    
+    % do random algo for 30 second
+    randomize_walk (serPort);
+    
+    turn_to_target (serPort, [6.0, 0.0]);
     bug_algo (serPort, [25, 49]);
     
     % set up walls
@@ -106,9 +110,106 @@ function finalRad= hw3_team_01 (serPort)
         delete (serPort);
         clear  serPort;
     end
+    
+    fill_blanks ();
+    do_plotting ();
 
     % Specify output parameter
     finalRad = g_total_angle;
+end
+
+% randomize walk function to create random blocks
+function randomize_walk (serPort)
+
+    global c_SlowFwdVel;
+    global c_LoopInteval;
+    global c_SlowFwdVel;
+    global c_BackOffVel; 
+    global c_BackOffDist;
+    global c_TurnSpeed;
+
+    start_time = cputime;
+
+    % drive the robot.
+    SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+    
+    while (true)
+        update_moving_stats (serPort);
+        
+        end_time = cputime - start_time;
+        if (end_time > 30.0)
+            return;
+        end
+        
+        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+
+        if (isnan (bRight) || isnan (bCenter) || isnan (bLeft))
+            display ('So bad - I dont know whats that');
+            continue;
+        else
+            bumped = bRight | bCenter | bLeft;
+        end
+        
+        % If obstacle was hit reset distance and angle recorders
+        if (bumped)
+            
+            display ('bump into the wall');
+
+            % reset moving stats
+            update_moving_stats (serPort);
+            update_current_map (2);
+                
+            deg = 0;
+            
+            % Turn away from obstacle: always counter clock-wise (leverage the wall sensor)
+            if ((bRight && bLeft) || bCenter)
+                display ('bumpReact: center')
+                
+                if (rand > 0.5)
+                    deg = randi([90 165],1,1);
+                else
+                    deg = randi([195 270],1,1);
+                    
+                    % optimization: faster turns
+                    if (deg > 180)
+                        deg = (deg - 180) * (-1);
+                    end
+                end
+                
+                SetLEDsRoomba (serPort, 3, 50, 50);
+                
+            elseif bRight
+                display ('bumpReact: right')
+                deg = randi ([30 175],1,1);
+                SetLEDsRoomba (serPort, 2, 0, 50);
+            elseif bLeft
+                display ('bumpReact: left')
+                deg = randi ([30 175],1,1) * (-1);
+                SetLEDsRoomba (serPort, 1, 100, 50);
+            end
+            
+            % back off for a little bit
+            travelDist (serPort, c_BackOffVel, c_BackOffDist);
+            turnAngle (serPort, c_TurnSpeed, deg);
+            
+            update_moving_stats (serPort);
+            
+            % turning is done, let the robot go straight.
+            SetFwdVelAngVelCreate (serPort, c_SlowFwdVel, 0.0);
+        else
+            wallSensor = WallSensorReadRoomba (serPort);
+            
+            if (wallSensor)
+                update_current_map (2);
+            else
+                update_current_map (0);
+            end
+        end
+
+        % Briefly pause to avoid continuous loop iteration
+        pause (c_LoopInteval);
+    end
+
 end
 
 % turning the robot to the target point
@@ -226,29 +327,46 @@ end
 function unexplored_blk= any_unexplored_blks ()
 
     global g_map_matrix;
+    global g_prev_blk;
     
     for i = 1:50
         for j = 1:50
             if (g_map_matrix(i, j) == 0)
                 
                 if (i > 1 && g_map_matrix (i - 1, j) == 1)
-                    unexplored_blk = [i - 1, j]; 
-                    return;
+                
+                    if (g_prev_blk ~= [i - 1, j]) 
+                        unexplored_blk = [i - 1, j];
+                        g_prev_blk = unexplored_blk;
+                        return;
+                    end
                 end 
                 
                 if (i < 50 && g_map_matrix (i + 1, j) == 1)
-                    unexplored_blk = [i + 1, j]; 
-                    return;
+                
+                    if (g_prev_blk ~= [i + 1, j])
+                        unexplored_blk = [i + 1, j];
+                        g_prev_blk = unexplored_blk; 
+                        return;
+                    end
                 end
                 
                 if (j < 50 && g_map_matrix (i, j + 1) == 1)
-                    unexplored_blk = [i, j + 1]; 
-                    return;
+                
+                    if (g_prev_blk ~= [i, j + 1])
+                        unexplored_blk = [i, j + 1]; 
+                        g_prev_blk = unexplored_blk;
+                        return;
+                    end
                 end 
                 
                 if (j > 1 && g_map_matrix (i, j - 1) == 1)
-                    unexplored_blk = [i, j - 1]; 
-                    return;
+                
+                    if (g_prev_blk ~= [i, j - 1]) 
+                        unexplored_blk = [i, j - 1]; 
+                        g_prev_blk = unexplored_blk;
+                        return;
+                    end
                 end
             end
         end
@@ -760,7 +878,7 @@ function b_is_mline= is_mline ()
     
     display (sprintf ('current dist %f', dist));
     
-    if (dist < 0.1)
+    if (dist < 0.15)
         display ('m_line is found');
         b_is_mline = true;
         return;
@@ -952,7 +1070,9 @@ function do_plotting ()
     figure (figHandle);
     [r,c] = size (g_map_matrix);                  
     
-    imagesc ((1:c) + 0.5, (1:r) + 0.5, (g_map_matrix / 4));
+    g_mat = (g_map_matrix == 3) + (g_map_matrix == 0);
+    
+    imagesc ((1:c) + 0.5, (1:r) + 0.5, g_mat);
     colormap (gray);
     axis equal;
     
@@ -964,6 +1084,25 @@ function do_plotting ()
                 'XGrid',    'on', ...
                 'YGrid',    'on');
 
+end
+
+function fill_blanks ()
+
+    global g_map_matrix;
+
+    for i = 2:49
+        for j = 2:49            
+            if (g_map_matrix (i, j) == 1)
+                if ((g_map_matrix (i-1, j) == 0 || g_map_matrix (i-1, j) == 3) && ... 
+                    (g_map_matrix (i+1, j) == 0 || g_map_matrix (i+1, j) == 3) && ...
+                    (g_map_matrix (i, j+1) == 0 || g_map_matrix (i, j+1) == 3) && ... 
+                    (g_map_matrix (i, j-1) == 0 || g_map_matrix (i, j-1) == 3))
+                    
+                    g_map_matrix (i, j) == 0;
+                end
+            end
+        end
+    end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1141,6 +1280,7 @@ function init_global ()
     
     % referred constants
     global c_map_dim;
+    global g_prev_blk;
 
     % declare the map (50 x 50 array)
     g_map_matrix        = ones (c_map_dim);
@@ -1150,6 +1290,7 @@ function init_global ()
     g_total_x_dist      = 0.0;
     g_total_y_dist      = 0.0;
     g_total_angle       = 0.0;
+    g_prev_blk          = [round(c_map_dim/2), round(c_map_dim/2)];
 end
 
 function init_world ()
