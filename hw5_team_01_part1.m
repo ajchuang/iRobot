@@ -1,30 +1,33 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% COMS W4733 Computational Aspects of Robotics 2014
+%
+% Homework 5 part 1 (color tracker)
+%
+% Team number: 1
+% Team leader:  Jen-Chieh Huang (jh3478)
+% Team members: Sze wun wong (sw2955)
+%               Duo Chen (dc3026)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function hw4_team_01 (serPort)
 
-
-function hw4_team_04()
-serPort = RoombaInit (4);
-pts = dlmread('route1.txt');
-move_to_next_pt(serPort,pts);
-
-SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
-
-while (true) 
-    correctPath (serPort);
-    SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
-    
-    [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
-
-    if (bRight | bCenter | bLeft)
-        display ('Home!');
-        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-        return;
+    while (true)
+        
+        find_object (serPort);
+        determin_distance (serPort);
+        
+        % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
     end
 end
 
+% TODO
+function determin_distance (serPort)
+    [com, roi] = camera ();
 end
 
-function stats = correctPath (serPort)
+% TO_CHECK
+function stats = find_object (serPort)
 
-    com = camera();
+    [com, roi] = camera ();
     acc_angle = 0;
     
     % find the object
@@ -38,7 +41,7 @@ function stats = correctPath (serPort)
         if (com == [-1, -1]) 
             turn_to_target (serPort, 30);
             acc_angle = acc_angle + 30;
-            com = camera ();
+            [com, roi] = camera ();
         else
             break;
         end
@@ -74,26 +77,10 @@ function stats = correctPath (serPort)
             display('turned left!');
         end
 
-        com = camera();
+        [com, roi] = camera();
     end
     
     stats = true;
-end
-
-function move_to_next_pt(serPort,pts)
-    current_ang = 0;
-    x = pts(:,1);
-    y = pts(:,2);
-
-    for i = 1:length(x)-1
-        theta = atan2d((x(i+1) - x(i)),(y(i+1) - y(i)));
-        turn_ang = theta - current_ang;
-        current_ang = current_ang + turn_ang;
-        turn_ang = -turn_ang
-        dist = sqrt((y(i+1) - y(i))^2 + (x(i+1) - x(i))^2);
-        turn_to_target (serPort, turn_ang);
-        travelDist (serPort, .22, dist);
-    end
 end
 
 % turning the robot to the target point
@@ -130,18 +117,14 @@ function deg= rad2deg (rad)
 end
 
 
-function center_of_mass = camera()
+function [center_of_mass, region_of_interest] = camera ()
 
     image = imread('http://192.168.0.101/img/snapshot.cgi?');
     [BW, maskedRGBImage] = createMask(image);
     [x, y] = size(BW)
     imshow(BW);
-    
-    if (nnz(BW) > 15*15)
-        center_of_mass = COM(BW);
-    else
-        center_of_mass = [-1, -1];
-    end
+
+    [center_of_mass, region_of_interest] = [COM (BW), nnz (BW)];
 end
 
 function [BW,maskedRGBImage] = createMask(RGB)
@@ -187,8 +170,8 @@ maskedRGBImage(repmat(~BW,[1 1 3])) = 0;
 end
 
 function center_of_mass = COM(BW)
-binaryImage = true(size(BW));
-labeledImage = bwlabel(binaryImage);
-measurements = regionprops(labeledImage, BW, 'WeightedCentroid');
-center_of_mass = measurements.WeightedCentroid;
+    binaryImage = true(size(BW));
+    labeledImage = bwlabel(binaryImage);
+    measurements = regionprops(labeledImage, BW, 'WeightedCentroid');
+    center_of_mass = measurements.WeightedCentroid;
 end
