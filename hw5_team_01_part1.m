@@ -10,42 +10,39 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw4_team_01 (serPort)
 
+    global roi_min = 15x15;
+
     while (true)
+    
+        % get a frame each loop
+        [com, roi] = camera ();
         
-        find_object (serPort);
-        determin_distance (serPort);
-        
+        if (roi < roi_min)
+            find_object (serPort);
+        else
+            aiming_the_object (serPort, com);
+            determin_distance (serPort, roi);
+        end
         % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
     end
 end
 
-% TODO
-function determin_distance (serPort)
-    [com, roi] = camera ();
+% The function we used to retrieve the image
+function [center_of_mass, region_of_interest] = camera ()
+
+    image = imread ('http://192.168.0.101/img/snapshot.cgi?');
+    [BW, maskedRGBImage] = createMask (image);
+    [x, y] = size (BW);
+    % imshow (BW);
+
+    [center_of_mass, region_of_interest] = [COM (BW), nnz (BW)];
 end
 
-% TO_CHECK
-function stats = find_object (serPort)
+% TODO
+function determin_distance (serPort, roi)
+end
 
-    [com, roi] = camera ();
-    acc_angle = 0;
-    
-    % find the object
-    while (1)
-        if (acc_angle >= 360)
-            display ('I can not find the image - fuck you.');
-            stats = false;
-            return;
-        end
-        
-        if (com == [-1, -1]) 
-            turn_to_target (serPort, 30);
-            acc_angle = acc_angle + 30;
-            [com, roi] = camera ();
-        else
-            break;
-        end
-    end
+function aiming_the_object (serPort, com)
     
     turn = 16
     
@@ -57,8 +54,14 @@ function stats = find_object (serPort)
 
     % aiming the target
     while (abs(com(1)-160) > 20)
+    
+        % end condition to avoid continuously turn
+        if (turn < 1)
+            break;
+            
         SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-        if(com(1) < 160)
+        
+        if (com(1) < 160)
 
             if (side == 0)
                 turn = turn/2;
@@ -83,6 +86,34 @@ function stats = find_object (serPort)
     stats = true;
 end
 
+% TO_CHECK
+function stats= find_object (serPort)
+
+    global roi_min;
+    
+    [com, roi] = camera ();
+    acc_angle = 0;
+    
+    % find the object
+    while (1)
+        if (acc_angle >= 360)
+            display ('I can not find the target - fuck you.');
+            stats = false;
+            return;
+        end
+        
+        if (roi > roi_min) 
+            turn_to_target (serPort, 30);
+            acc_angle = acc_angle + 30;
+            [com, roi] = camera ();
+        else
+            break;
+        end
+    end
+    
+    stats = true;
+end
+
 % turning the robot to the target point
 function turn_to_target (serPort, angle)
     
@@ -102,10 +133,6 @@ function turn_to_target (serPort, angle)
             thisAngle = rad2deg(deg2rad(angle) - read_angle);
         end
     end
-    
-    function deg= rad2deg (rad)
-        deg = rad * 180 / pi;
-    end
 end
 
 function rad=  deg2rad (deg)
@@ -114,17 +141,6 @@ end
 
 function deg= rad2deg (rad)
     deg = rad * 180 / pi;
-end
-
-
-function [center_of_mass, region_of_interest] = camera ()
-
-    image = imread('http://192.168.0.101/img/snapshot.cgi?');
-    [BW, maskedRGBImage] = createMask(image);
-    [x, y] = size(BW)
-    imshow(BW);
-
-    [center_of_mass, region_of_interest] = [COM (BW), nnz (BW)];
 end
 
 function [BW,maskedRGBImage] = createMask(RGB)
