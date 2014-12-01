@@ -10,13 +10,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw4_team_01 (serPort)
 
-    global roi_min = 15x15;
+    global roi_min;
+    global roi_tolerance;
+
+    init_globals ();
 
     while (true)
     
         % get a frame each loop
         [com, roi] = camera ();
         
+        % if I can not find the object, turning to locate
         if (roi < roi_min)
             find_object (serPort);
         else
@@ -40,6 +44,31 @@ end
 
 % TODO
 function determin_distance (serPort, roi)
+
+    global roi_tolerance;
+    global roi_min;
+    
+    while (true)
+        
+        if (abs (roi - roi_min) < roi_tolerance)
+            display ('okay - this is good enough');
+            break;
+        end
+        
+        if (roi > roi_min)
+            % go back
+            SetFwdVelAngVel (serPort, -0.5, 0.0)
+        else
+            % go forward
+            SetFwdVelAngVel (serPort, 0.5, 0.0)
+        end
+        
+        % get a frame each loop
+        [com, roi] = camera ();
+    end
+    
+    % stop the robot
+    SetFwdVelAngVel (serPort, 0.0, 0.0)
 end
 
 function aiming_the_object (serPort, com)
@@ -89,23 +118,28 @@ end
 % TO_CHECK
 function stats= find_object (serPort)
 
+    % globals
     global roi_min;
     
-    [com, roi] = camera ();
+    % locals
     acc_angle = 0;
+    unit_turn = 30;
     
     % find the object
     while (1)
+    
+        % get current image
+        [com, roi] = camera ();
+        
         if (acc_angle >= 360)
-            display ('I can not find the target - fuck you.');
+            display ('I can not find the target - sorry.');
             stats = false;
             return;
         end
         
         if (roi > roi_min) 
-            turn_to_target (serPort, 30);
-            acc_angle = acc_angle + 30;
-            [com, roi] = camera ();
+            turn_to_target (serPort, unit_turn);
+            acc_angle = acc_angle + unit_turn;
         else
             break;
         end
@@ -190,4 +224,9 @@ function center_of_mass = COM(BW)
     labeledImage = bwlabel(binaryImage);
     measurements = regionprops(labeledImage, BW, 'WeightedCentroid');
     center_of_mass = measurements.WeightedCentroid;
+end
+
+function init_globals ()
+    global roi_min = 15x15;
+    global roi_tolerance = 100;
 end
