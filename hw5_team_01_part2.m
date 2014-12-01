@@ -1,22 +1,23 @@
-
-
-function hw4_team_04()
-serPort = RoombaInit (4);
-pts = dlmread('route1.txt');
-move_to_next_pt(serPort,pts);
-
-SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
-
-while (true) 
-    correctPath (serPort);
-    SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% COMS W4733 Computational Aspects of Robotics 2014
+%
+% Homework 5 part 2 (door finder)
+%
+% Team number: 1
+% Team leader:  Jen-Chieh Huang (jh3478)
+% Team members: Sze wun wong (sw2955)
+%               Duo Chen (dc3026)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function hw5_team_01_part_2 (serPort)
     
-    [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+    pts = dlmread ('route1.txt');
+    
+    % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
 
-    if (bRight | bCenter | bLeft)
-        display ('Home!');
-        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-        return;
+    while (true)
+        % step 1. find the door
+        % step 2. if not, navigate
+        % step 3. else go knock the door
     end
 end
 

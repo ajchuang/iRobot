@@ -8,7 +8,7 @@
 % Team members: Sze wun wong (sw2955)
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function hw4_team_01 (serPort)
+function hw5_team_01_part_1 (serPort)
 
     global roi_min;
     global roi_tolerance;
