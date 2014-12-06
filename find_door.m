@@ -1,3 +1,9 @@
+
+function hw5()
+serPort = RoombaInit (3);
+findDoor(serPort);
+end
+
 function findDoor(serPort)
 
 	com  = camera()
@@ -42,3 +48,7 @@ function line = determine_line(com_x, picture_width, ratio) %ration > 0.5
 		line  = ratio * picture_width
 	end
 end
+
+
+
+
