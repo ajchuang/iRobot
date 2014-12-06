@@ -12,6 +12,8 @@ function hw5_team_01_part_2 ()
 serPort = RoombaInit (3);
 %   pts = dlmread ('route1.txt');
 while (true) 
+    
+    tuneOrientation(serPort);
     com = camera();
     line = determine_line(com(1), 320, 2/3);
     findDoor (serPort, line);
@@ -208,10 +210,74 @@ function findDoor(serPort, line)
 
 end
 
-function line = determine_line(com_x, picture_width, ratio) %ration > 0.5
+function line = determine_line(com_x, picture_width, ratio) %ratio > 0.5
+
     if (com_x < picture_width/2)
 		line = (1 - ratio) * picture_width
 	else
 		line  = ratio * picture_width
 	end
 end
+
+function prop= find_light (img)
+    %img = imread ('im2.png');
+    I = rgb2gray (img);
+ 
+    % mask the bottom 1/3
+    centerIndex = round (size(I,1) / 3 * 2);
+    I(centerIndex:end,:) = cast (0, class(I));
+ 
+    % do threasholding for lights
+    bw = im2bw (I, 0.97);
+    se = strel ('square', 7);
+    ed = imerode (bw, se);
+    s  = regionprops (ed, 'centroid');
+    centroids = cat(1, s.Centroid);
+ 
+    %imshow (ed)
+    %hold on
+    %plot(centroids(:,1), centroids(:,2), 'b*')
+    %hold off
+    
+    prop = s;
+end
+
+function tuneOrientation(serPort)
+    
+    tune_pos = findTunePos();
+    if (tune_pos < 160)
+        side = 1;
+    else
+        side = 0;
+    end
+
+    while (abs(tune_pos - 160) > 20)
+        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+        if(tune_pos < 160)
+            if (side == 0)
+                turn = turn/2;
+                side = 1;
+            end
+            turn_to_target (serPort, turn);
+            display('turned right!');
+        else
+            if (side == 1)
+                turn = turn/2;
+                side = 0;
+            end
+            turn_to_target (serPort, (-1) * turn);
+            display('turned left!');
+        end
+
+        tune_pos = findTunePos();
+    end
+end
+
+function tune_pos = findTunePos()
+    image = imread('http://192.168.0.101/img/snapshot.cgi?');
+    prop = find_light(image);
+    (max_area, max_index) = max(prop.Area);
+    centroids = cat(1, prop.Centroid;)
+    tune_pos = centroids(max_index, 1)
+end
+
