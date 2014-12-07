@@ -12,29 +12,64 @@ function hw5_team_01_part_2 ()
 
 serPort = RoombaInit (4);
 tuneOrientation(serPort);
-display ('pass!');
+display ('tuned!');
+
+com = camera();
+
+if (com(1) < 160)
+    % door on the left side
+    door_side = 0;
+else
+    % door on the right side
+    door_side = 1;
+end
+
 
 while (true)
-    
-
-while (true) 
-    
+    try_distance = 1;
+    travelDist(serPort, .2, try_distance);
+    total_angle_turned = findDoor(serPort);
+    if (total_angle_turned > 75)
+        break;
+    end
+    turn_to_target(serPort, (-1)*total_angle_turned);
 
     com = camera();
-    line = determine_line(com(1), 320, 3/4);
-    findDoor (serPort, line);
-    display ('found door!!');
-    SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
-    
-    [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
 
-    if (bRight | bCenter | bLeft)
-        display ('Home!');
-        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-        return;
-    end
 end
-findDoor(serPort);
+
+display('final approach!!!');
+
+SetFwdVelAngVelCreate (serPort, 0.25, 0.0);
+
+if (bRight | bCenter | bLeft)
+    display ('Home!');
+    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+    return;
+end
+
+end
+
+    
+
+% while (true) 
+    
+
+%     com = camera();
+%     line = determine_line(com(1), 320, 3/4);
+%     findDoor (serPort, line);
+%     display ('found door!!');
+%     SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
+    
+%     [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+
+%     if (bRight | bCenter | bLeft)
+%         display ('Home!');
+%         SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+%         return;
+%     end
+% end
+
 
 
 % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
@@ -173,7 +208,45 @@ measurements = regionprops(labeledImage, BW, 'WeightedCentroid');
 center_of_mass = measurements.WeightedCentroid;
 end
 
-function findDoor(serPort, line)
+function total_angle_turned = findDoor(serPort)
+    total_angle_turned = 0;
+    com  = camera();
+    turn = 16;
+
+    if (com(1) < 160)
+        side = 1;
+    else
+        side = 0;
+    end
+
+    while (abs(com(1) - 160) > 40)
+        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+        if (turn == 1)
+            break;
+        end
+        if(com(1) < 160)
+            if (side == 0)
+                turn = turn/2;
+                side = 1;
+            end
+            turn_to_target (serPort, turn);
+            total_angle_turned = total_angle_turned + turn;
+            display('turned right!');
+        else
+            if (side == 1)
+                turn = turn/2;
+                side = 0;
+            end
+            turn_to_target (serPort, (-1) * turn);
+            total_angle_turned = total_angle_turned - turn;
+            display('turned left!');
+        end
+
+        com = camera();
+    end
+
+
+function findDoor_old(serPort)
 
     com  = camera()
     turn  = 16
@@ -181,13 +254,13 @@ function findDoor(serPort, line)
     % line depends on which side the door is at
     
 
-    if (com(1) < line)
+    if (com(1) < 160)
         side = 1;
     else
         side = 0;
     end
 
-    while (abs(com(1) - line) > 40)
+    while (abs(com(1) - 60) > 40)
         SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
         if (turn == 1)
             break;
