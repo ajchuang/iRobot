@@ -34,6 +34,7 @@ end
 function [center_of_mass, region_of_interest] = camera ()
 
     % @lfred: a trick here - reduce the frequency of taking pictures.
+    display ('*** say cheese ***');
     image = imread ('http://192.168.0.101/img/snapshot.cgi?');
     pause (0.5);
     
@@ -57,10 +58,10 @@ function determin_distance (serPort, roi)
         
         if (roi > roi_min)
             % go back
-            SetFwdVelAngVel (serPort, -0.5, 0.0)
+            SetFwdVelAngVel (serPort, -0.3, 0.0)
         else
             % go forward
-            SetFwdVelAngVel (serPort, 0.5, 0.0)
+            SetFwdVelAngVel (serPort, 0.3, 0.0)
         end
         
         % get a frame each loop
