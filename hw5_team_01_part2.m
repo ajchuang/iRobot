@@ -14,27 +14,27 @@ serPort = RoombaInit (4);
 tuneOrientation(serPort);
 display ('tuned!');
 
-com = camera();
+[com, roi] = camera();
 
 if (com(1) < 160)
     % door on the left side
-    door_side = 0;
+    door_side = 1;
 else
     % door on the right side
-    door_side = 1;
+    door_side = -1;
 end
 
 
 while (true)
     try_distance = 1;
     travelDist(serPort, .2, try_distance);
-    total_angle_turned = findDoor(serPort);
-    if (total_angle_turned > 75)
+    total_angle_turned = findDoor(serPort, door_side);
+    if (abs(total_angle_turned) > 75)
         break;
     end
     turn_to_target(serPort, (-1)*total_angle_turned);
 
-    com = camera();
+    [com, roi] = camera();
 
 end
 
@@ -78,7 +78,7 @@ end
 
 function stats = correctPath (serPort)
 
-    com = camera ();
+    [com, roi] = camera ();
     acc_angle = 0;
 
     % find the object
@@ -92,7 +92,7 @@ function stats = correctPath (serPort)
         if (com == [-1, -1])
             turn_to_target (serPort, 30);
             acc_angle = acc_angle + 30;
-            com = camera ();
+            [com, roi] = camera ();
         else
             break;
         end
@@ -131,7 +131,7 @@ function stats = correctPath (serPort)
             display('turned left!');
         end
         
-        com = camera();
+        [com, roi] = camera();
     end
 
     stats = true;
@@ -186,8 +186,55 @@ function deg= rad2deg (rad)
 deg = rad * 180 / pi;
 end
 
+% The function we used to retrieve the image
+function [center_of_mass, region_of_interest] = camera ()
 
-function center_of_mass = camera()
+    % @lfred: a trick here - reduce the frequency of taking pictures.
+    while (true)
+        try
+            display ('*** say cheese ***');
+            image = imread ('http://192.168.0.100/img/snapshot.cgi?');
+            pause (0.2);
+            break;
+        catch
+            continue;
+        end
+    end
+    
+    % do the image processing job
+    [bw, maskedRGBImage] = createMask (image);
+    se = strel ('square', 3);
+    ed1 = imerode (bw, se);
+    
+    se2 = strel ('square', 12);
+    ed = imdilate (bw, se2);
+    ap = regionprops(ed, 'area');
+    aarray = cat (1, ap.Area);
+    cp = regionprops(ed, 'centroid');
+    carray = cat (1, cp.Centroid);
+    
+    [max1, index] = max (aarray);
+    
+    if (length(index) ~= 0)
+        % output the carray
+        x = carray (index, 1)
+        y = carray (index, 2)
+
+        imshow (ed);
+        hold on;
+        plot (x, y, '*');
+        hold off;
+
+        center_of_mass = [x, y];
+        region_of_interest = max1;
+    else
+        center_of_mass = [-1, -1];
+        region_of_interest = -1;
+    end
+end
+
+
+function [center_of_mass, region_of_interest] = camera_old()
 
 image = imread('http://192.168.0.101/img/snapshot.cgi?');
 [BW, maskedRGBImage] = createMask(image);
@@ -208,10 +255,26 @@ measurements = regionprops(labeledImage, BW, 'WeightedCentroid');
 center_of_mass = measurements.WeightedCentroid;
 end
 
-function total_angle_turned = findDoor(serPort)
+function total_angle_turned = findDoor(serPort, door_side)
     total_angle_turned = 0;
-    com  = camera();
+    [com, roi]  = camera();
     turn = 16;
+
+    % check whether the door is seen. If not, find it
+
+    max_roi = 0;
+    max_angle = 0;
+
+    for x in [30, 60 , 90, 120]
+        turn_to_target(serPort, 30 * door_side);
+        [com, roi] = camera();
+        if (roi > max_roi)
+            max_angle = x;
+        end
+    end
+
+    turn_to_target(serPort, (-1) * door_side * (120 - max_angle));
+    total_angle_turned = door_side * max_angle;
 
     if (com(1) < 160)
         side = 1;
@@ -242,13 +305,13 @@ function total_angle_turned = findDoor(serPort)
             display('turned left!');
         end
 
-        com = camera();
+        [com, roi] = camera();
     end
 
 
 function findDoor_old(serPort)
 
-    com  = camera()
+    [com, roi]  = camera()
     turn  = 16
 
     % line depends on which side the door is at
@@ -281,7 +344,7 @@ function findDoor_old(serPort)
             display('turned left!');
         end
 
-        com = camera();
+        [com, roi] = camera();
     end
 
 end
