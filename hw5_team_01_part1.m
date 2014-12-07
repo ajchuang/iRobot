@@ -27,22 +27,22 @@ function hw5_team_01_part_1 (serPort)
             aiming_the_object (serPort, com);
             determin_distance (serPort, roi);
         end
-        % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
     end
 end
 
 % The function we used to retrieve the image
 function [center_of_mass, region_of_interest] = camera ()
 
+    % @lfred: a trick here - reduce the frequency of taking pictures.
     image = imread ('http://192.168.0.101/img/snapshot.cgi?');
+    pause (0.5);
+    
+    % do the image processing job
     [BW, maskedRGBImage] = createMask (image);
     [x, y] = size (BW);
-    % imshow (BW);
-
     [center_of_mass, region_of_interest] = [COM (BW), nnz (BW)];
 end
 
-% TODO
 function determin_distance (serPort, roi)
 
     global roi_tolerance;

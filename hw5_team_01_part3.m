@@ -28,8 +28,15 @@ function hw5_team_01_part_3 (serPort)
         [x, y, a] = find_largest_roi (roi);
         
         if a != -1
-            % turn to (x, y)
-            turn_to_point (x);
+            % turn to the light
+            suc = turn_to_point (x);
+            
+            % go if turning is done.
+            if (suc)
+                SetFwdVelAngVelCreate (serPort, 0.4, 0.0);
+            else
+                display ("WTF !?");
+            end
         else
             % left turn 
             turn_to_target (serPort, 90);
@@ -38,6 +45,7 @@ function hw5_team_01_part_3 (serPort)
             roi_left = find_light (img_left);
             [xl, yl, al] = find_largest_roi (roi_left);
             
+            % ROI not found
             if al != -1
                 continue;
             end
@@ -49,6 +57,7 @@ function hw5_team_01_part_3 (serPort)
             roi_right = find_light (img_left);
             [xr, yr, ar] = find_largest_roi (roi_right);
             
+            % ROI not found
             if ar == -1
                 display ('hell - there is no light ? - exit');
                 return;
@@ -60,7 +69,58 @@ function hw5_team_01_part_3 (serPort)
 end
 
 % TODO: aiming the light
-function turn_to_point (x)
+function suc= turn_to_point (serPort, x)
+
+    angle = 32;
+    cur_pos = x;
+    is_left = false;
+    
+    % init value of is_left
+    if (x > 160)
+        is_left = false;
+    else
+        is_left = true;
+    end
+
+    % Start to loop
+    while (true)
+        
+        % if it's not to bad
+        if abs(abs(cur_pos) - 160) < 20 or angle <= 1
+            suc = true;
+            return;
+        end
+    
+        % we are at the right side
+        if (cur_pos > 160)
+            if (is_left == true)
+                % we change side
+                is_left = false;
+                angle = angle * (-1) / 2;
+            end
+        else
+            if (is_left == false)
+                % we change side
+                is_left = true;
+                angle = angle * (-1) / 2;
+            end
+        end
+        
+        % do actual turning
+        turn_to_target (serPort, angle);
+        
+        % renew position
+        img = take_picture ();
+        
+        roi = find_light (img);
+        [m, n, z] = find_largest_roi (roi);
+        cur_pos = m;
+        
+        % oops! where is the light ?
+        if (cur_pos < 0)
+            error ('where is the light ?');
+        end
+    end
 
 end
 
