@@ -9,6 +9,7 @@
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw5_team_01_part_2 ()
+<<<<<<< HEAD
 serPort = RoombaInit (3);
 
 tuneOrientation(serPort);
@@ -34,75 +35,91 @@ findDoor(serPort);
 
 
 % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
+=======
+    
+    serPort = RoombaInit (3);
+>>>>>>> 7813a86dfbbcaf3e7fb6a6a3c2fd37a090c3f1c5
 
-%while (true)
-    % step 1. find the door
-    % step 2. if not, navigate
-    % step 3. else go knock the door
-%end
-%end
+    while (true) 
+        
+        tuneOrientation (serPort);
+        
+        com = camera ();
+        line = determine_line (com(1), 320, 2/3);
+        findDoor (serPort, line);
+        SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
+        
+        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
 
+        if (bRight | bCenter | bLeft)
+            display ('Home!');
+            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+            return;
+        end
+    end
+    
+    findDoor (serPort);
 end
-
-
-
 
 function stats = correctPath (serPort)
 
-com = camera();
-acc_angle = 0;
+    com = camera ();
+    acc_angle = 0;
 
-% find the object
-while (1)
-    if (acc_angle >= 360)
-        display ('I can not find the image - fuck you.');
-        stats = false;
-        return;
-    end
-    
-    if (com == [-1, -1])
-        turn_to_target (serPort, 30);
-        acc_angle = acc_angle + 30;
-        com = camera ();
-    else
-        break;
-    end
-end
-
-turn = 16
-
-if (com(1) < 160)
-    side = 1;
-else
-    side = 0;
-end
-
-% aiming the target
-while (abs(com(1)-160) > 20)
-    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-    if(com(1) < 160)
-        
-        if (side == 0)
-            turn = turn/2;
-            side = 1
-        end
-        turn_to_target (serPort, turn);
-        display('turned right!');
-    else
-        
-        if (side == 1)
-            turn = turn/2;
-            side = 0;
+    % find the object
+    while (1)
+        if (acc_angle >= 360)
+            display ('I can not find the image - fuck you.');
+            stats = false;
+            return;
         end
         
-        turn_to_target (serPort, (-1) * turn);
-        display('turned left!');
+        if (com == [-1, -1])
+            turn_to_target (serPort, 30);
+            acc_angle = acc_angle + 30;
+            com = camera ();
+        else
+            break;
+        end
     end
-    
-    com = camera();
-end
 
-stats = true;
+    turn = 16
+
+    if (com(1) < 160)
+        side = 1;
+    else
+        side = 0;
+    end
+
+    % aiming the target
+    while (abs(com(1)-160) > 20)
+    
+        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+        
+        if(com(1) < 160)
+            
+            if (side == 0)
+                turn = turn/2;
+                side = 1
+            end
+            
+            turn_to_target (serPort, turn);
+            display('turned right!');
+        else
+            
+            if (side == 1)
+                turn = turn/2;
+                side = 0;
+            end
+            
+            turn_to_target (serPort, (-1) * turn);
+            display('turned left!');
+        end
+        
+        com = camera();
+    end
+
+    stats = true;
 end
 
 function move_to_next_pt(serPort,pts)

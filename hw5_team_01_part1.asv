@@ -9,33 +9,28 @@
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw5_team_01_part_1 ()
-    serPort = RoombaInit (4);
+    serPort = RoombaInit (3);
     global roi_min;
     global roi_tolerance;
-    global roi_not_found;
 
     init_globals ();
 
     while (true)
-        
+    
         % get a frame each loop
         [com, roi] = camera ();
         
         if (roi < 0)
-            display('stuck in roi < 0');
-            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
             continue;
         end
         
         % if I can not find the object, turning to locate
-        if (roi < roi_not_found)
-            roi
-            display('stuck in roi min');
+        if (roi < roi_min)
             find_object (serPort);
         else
             display('aiming the object!!!');
             aiming_the_object (serPort, com);
-            display('determining the distance!!!');
+            display('det')
             determin_distance (serPort, roi);
         end
     end
@@ -45,24 +40,14 @@ end
 function [center_of_mass, region_of_interest] = camera ()
 
     % @lfred: a trick here - reduce the frequency of taking pictures.
-    while (true)
-        try
-            display ('*** say cheese ***');
-            image = imread ('http://192.168.0.100/img/snapshot.cgi?');
-            pause (0.2);
-            break;
-        catch
-            continue;
-        end
-    end
+    display ('*** say cheese ***');
+    image = imread ('http://192.168.0.100/img/snapshot.cgi?');
+    pause (0.5);
     
     % do the image processing job
     [bw, maskedRGBImage] = createMask (image);
     se = strel ('square', 3);
-    ed1 = imerode (bw, se);
-    
-    se2 = strel ('square', 12);
-    ed = imdilate (bw, se2);
+    ed = imerode (bw, se);
     ap = regionprops(ed, 'area');
     aarray = cat (1, ap.Area);
     cp = regionprops(ed, 'centroid');
@@ -92,39 +77,36 @@ function determin_distance (serPort, roi)
 
     global roi_tolerance;
     global roi_min;
-    global roi_not_found;
     
-    %while (true)
+    while (true)
         
         if (abs (roi - roi_min) < roi_tolerance)
             display ('okay - this is good enough');
-            SetFwdVelAngVelCreate (serPort, 0.0, 0.0)
-            return;
+            break;
         end
         
         if (roi > roi_min)
             % go back
-            SetFwdVelAngVelCreate (serPort, -0.1, 0.0)
+            SetFwdVelAngVelCreate (serPort, -0.2, 0.0)
         else
             % go forward
-            SetFwdVelAngVelCreate (serPort, 0.1, 0.0)
+            SetFwdVelAngVelCreate (serPort, 0.2, 0.0)
         end
         
         % get a frame each loop
-    %    [com, roi] = camera ();
+        [com, roi] = camera ();
         
-    %    if (roi < 0)
-    %        return;
-    %    end
-    %end
+        if (roi < 0)
+            return;
+        end
+    end
     
     % stop the robot
-    %SetFwdVelAngVelCreate (serPort, 0.0, 0.0)
+    SetFwdVelAngVelCreate (serPort, 0.0, 0.0)
 end
 
 function aiming_the_object (serPort, com)
     
-    display ('aiming_the_object');
     turn = 16
     
     if (com(1) < 160)
@@ -136,8 +118,6 @@ function aiming_the_object (serPort, com)
     % aiming the target
     while (abs(com(1)-160) > 20)
     
-        display ('aiming_the_object: 1' );
-        
         % end condition to avoid continuously turn
         if (turn < 1)
             break;
@@ -179,7 +159,7 @@ function stats = find_object (serPort)
 
     % globals
     global roi_min;
-    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+    
     % locals
     acc_angle = 0;
     unit_turn = 30;
@@ -250,8 +230,6 @@ end
 function init_globals ()
     global roi_min
     global roi_tolerance
-    global roi_not_found
-        roi_not_found = 25*25;
-        roi_min = 100 * 100;
+        roi_min = 75*75;
         roi_tolerance = roi_min * .25;
 end
