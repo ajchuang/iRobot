@@ -5,7 +5,7 @@
 %
 % Team number: 1
 % Team leader:  Jen-Chieh Huang (jh3478)
-% Team members: Sze wun wong (sw2955)
+% Team members: Sze Wun Wong (sw2955)
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw5_team_01_part_3 (serPort)
@@ -128,16 +128,22 @@ end
 % if roi is not found, [-1, -1, -1] is returned.
 function [x, y, a]= find_largest_roi (roi_array)
 
-    area_array = cat (1, s.Area);
+    s  = regionprops (roi_array, 'area');
+    area_array = cat(1, s.Area);
     [max, index] = max (area_array);
     
+    s2 = regionprops (roi_array, 'centroid');
+    center_array = cat(1, s.Centroid);
+    
+    % we dont like thing too large or too small
     if max > 30*30 or max < 5*5:
+        display ('no light !?');
         x = -1;
         y = -1;
         a = -1;
     else
-        x = roi_array (index).Centroid (1);
-        y = roi_array (index).Centroid (2);
+        x = center_array (index, 1);
+        y = roi_array (index, 2);
         a = max;
     end
 end
@@ -156,15 +162,14 @@ function prop= find_light (img)
     bw = im2bw (I, 0.97);
     se = strel ('square', 7);
     ed = imerode (bw, se);
-    s  = regionprops (ed, 'centroid');
-    centroids = cat(1, s.Centroid);
+    
 
     %imshow (ed)
     %hold on
     %plot(centroids(:,1), centroids(:,2), 'b*')
     %hold off
     
-    prop = s;
+    prop = ed;
 end
 
 function stats = correctPath (serPort)
