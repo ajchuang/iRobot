@@ -10,13 +10,16 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw5_team_01_part_2 ()
 serPort = RoombaInit (3);
-%   pts = dlmread ('route1.txt');
+
+tuneOrientation(serPort);
+display ('pass!');
 while (true) 
     
-    tuneOrientation(serPort);
+
     com = camera();
-    line = determine_line(com(1), 320, 2/3);
+    line = determine_line(com(1), 320, 3/4);
     findDoor (serPort, line);
+    display ('found door!!');
     SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
     
     [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
@@ -154,7 +157,7 @@ end
 
 function center_of_mass = camera()
 
-image = imread('http://192.168.0.101/img/snapshot.cgi?');
+image = imread('http://192.168.0.100/img/snapshot.cgi?');
 [BW, maskedRGBImage] = createMask(image);
 [x, y] = size(BW)
 imshow(BW);
@@ -187,8 +190,11 @@ function findDoor(serPort, line)
         side = 0;
     end
 
-    while (abs(com(1) - line) > 20)
+    while (abs(com(1) - line) > 40)
         SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+        if (turn == 1)
+            break;
+        end
         if(com(1) < 160)
             if (side == 0)
                 turn = turn/2;
@@ -219,31 +225,34 @@ function line = determine_line(com_x, picture_width, ratio) %ratio > 0.5
     end
 end
 
-function prop= find_light (img)
-    %img = imread ('im2.png');
-    I = rgb2gray (img);
+function ed= find_light (img)
+    %img = imread ('im2.png');
+    I = rgb2gray (img);
  
-    % mask the bottom 1/3
-    centerIndex = round (size(I,1) / 3 * 2);
-    I(centerIndex:end,:) = cast (0, class(I));
+    % mask the bottom 1/3
+    centerIndex = round (size(I,1) / 3 * 2);
+    I(centerIndex:end,:) = cast (0, class(I));
  
-    % do threasholding for lights
-    bw = im2bw (I, 0.97);
-    se = strel ('square', 7);
-    ed = imerode (bw, se);
-    s  = regionprops (ed, 'centroid');
-    centroids = cat(1, s.Centroid);
+    % do threasholding for lights
+    bw = im2bw (I, 0.97);
+    se = strel ('square', 7);
+    ed = imerode (bw, se);
+    % prop = ed;
+    %s = regionprops (ed, 'centroid');
+    %centroids = cat(1, s.Centroid);
  
-    %imshow (ed)
-    %hold on
-    %plot(centroids(:,1), centroids(:,2), 'b*')
-    %hold off
-    
-    prop = s;
+    %imshow (ed)
+    %hold on
+    %plot(centroids(:,1), centroids(:,2), 'b*')
+    %hold off
+
+    %prop = s;
 end
 
 function tuneOrientation(serPort)
-    
+
+    turn = 16;
+
     tune_pos = findTunePos();
     if (tune_pos < 160)
         side = 1;
@@ -274,10 +283,23 @@ function tuneOrientation(serPort)
 end
 
 function tune_pos = findTunePos()
-    image = imread('http://192.168.0.101/img/snapshot.cgi?');
-    prop = find_light(image);
-    (max_area, max_index) = max(prop.Area);
-    centroids = cat(1, prop.Centroid;)
+    image = imread('http://192.168.0.100/img/snapshot.cgi?');
+    imshow(image)
+    ed = find_light(image);
+    while (ed == [])
+        turnAngle(serPort, 0.025, 60);
+        image = imread('http://192.168.0.100/img/snapshot.cgi?');
+        imshow(image);
+        ed = find_light(image);
+    end
+    %imshow (ed);
+    prop_area = regionprops(ed, 'area')
+    prop_centroid = regionprops(ed, 'centroid');
+    areas = cat(1, prop_area.Area);
+    areas
+    [max_area, max_index] = max(areas);
+    max_index
+    centroids = cat(1, prop_centroid.Centroid);
     tune_pos = centroids(max_index, 1)
 end
 
