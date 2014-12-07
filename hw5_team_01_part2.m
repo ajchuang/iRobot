@@ -9,11 +9,14 @@
 %               Duo Chen (dc3026)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function hw5_team_01_part_2 ()
-<<<<<<< HEAD
-serPort = RoombaInit (3);
 
+serPort = RoombaInit (4);
 tuneOrientation(serPort);
 display ('pass!');
+
+while (true)
+    
+
 while (true) 
     
 
@@ -35,30 +38,7 @@ findDoor(serPort);
 
 
 % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
-=======
-    
-    serPort = RoombaInit (3);
->>>>>>> 7813a86dfbbcaf3e7fb6a6a3c2fd37a090c3f1c5
 
-    while (true) 
-        
-        tuneOrientation (serPort);
-        
-        com = camera ();
-        line = determine_line (com(1), 320, 2/3);
-        findDoor (serPort, line);
-        SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
-        
-        [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
-
-        if (bRight | bCenter | bLeft)
-            display ('Home!');
-            SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-            return;
-        end
-    end
-    
-    findDoor (serPort);
 end
 
 function stats = correctPath (serPort)
@@ -174,7 +154,7 @@ end
 
 function center_of_mass = camera()
 
-image = imread('http://192.168.0.100/img/snapshot.cgi?');
+image = imread('http://192.168.0.101/img/snapshot.cgi?');
 [BW, maskedRGBImage] = createMask(image);
 [x, y] = size(BW)
 imshow(BW);
@@ -270,7 +250,7 @@ function tuneOrientation(serPort)
 
     turn = 16;
 
-    tune_pos = findTunePos();
+    tune_pos = findTunePos(serPort);
     if (tune_pos < 160)
         side = 1;
     else
@@ -295,22 +275,26 @@ function tuneOrientation(serPort)
             display('turned left!');
         end
 
-        tune_pos = findTunePos();
+        tune_pos = findTunePos(serPort);
     end
 end
 
-function tune_pos = findTunePos()
-    image = imread('http://192.168.0.100/img/snapshot.cgi?');
+function tune_pos = findTunePos(serPort)
+    image = imread('http://192.168.0.101/img/snapshot.cgi?');
     imshow(image)
     ed = find_light(image);
-    while (ed == [])
+    prop_area = regionprops(ed, 'area');
+    while (length(prop_area) == 0)
+        display('!!!nothing here!!!')
         turnAngle(serPort, 0.025, 60);
-        image = imread('http://192.168.0.100/img/snapshot.cgi?');
+        image = imread('http://192.168.0.101/img/snapshot.cgi?');
         imshow(image);
         ed = find_light(image);
     end
     %imshow (ed);
-    prop_area = regionprops(ed, 'area')
+    display('found light after tuning');
+    prop_area = regionprops(ed, 'area');
+    length(prop_area)
     prop_centroid = regionprops(ed, 'centroid');
     areas = cat(1, prop_area.Area);
     areas
