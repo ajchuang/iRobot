@@ -1,15 +1,15 @@
 
 
-function hw4_team_04()
-serPort = RoombaInit (4);
+function hw4_team_01()
+serPort = RoombaInit (3);
 pts = dlmread('route1.txt');
 move_to_next_pt(serPort,pts);
 
-SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
+SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
 
 while (true) 
     correctPath (serPort);
-    SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
+    SetFwdVelAngVelCreate (serPort, 0.22, 0.0);
     
     [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
 
@@ -53,7 +53,7 @@ function stats = correctPath (serPort)
     end
 
     % aiming the target
-    while (abs(com(1)-160) > 20)
+    while (abs(com(1)-160) > 30)
         SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
         if(com(1) < 160)
 
@@ -164,12 +164,12 @@ channel1Min = 0;
 channel1Max = 1;
 
 % Define thresholds for channel 2 based on histogram settings
-channel2Min = 0.05;
-channel2Max = .5;
+channel2Min = 0.25;
+channel2Max = 0.5;
 
 % Define thresholds for channel 3 based on histogram settings
-channel3Min = .9;
-channel3Max = 1;
+channel3Min = .15;
+channel3Max = .25;
 
 % Create mask based on chosen histogram thresholds
 BW = (I(:,:,1) >= channel1Min ) & (I(:,:,1) <= channel1Max) & ...
