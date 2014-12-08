@@ -11,11 +11,19 @@
 function hw5_team_01_part_2 ()
 
 serPort = RoombaInit (4);
+
+
 tuneOrientation(serPort);
 display ('tuned!');
 
 [com, roi] = camera();
 
+while (roi < 20*20)
+    travelDist(serPort, .3, 1);
+    [com, roi] = camera();
+    tuneOrientation(serPort);
+end
+display('door found!')
 if (com(1) < 160)
     % door on the left side
     door_side = 1;
@@ -27,7 +35,7 @@ end
 
 while (true)
     try_distance = 1;
-    travelDist(serPort, .2, try_distance);
+    travelDist(serPort, .3, try_distance);
     total_angle_turned = findDoor(serPort, door_side);
     if (abs(total_angle_turned) > 75)
         break;
@@ -40,13 +48,21 @@ end
 
 display('final approach!!!');
 
-SetFwdVelAngVelCreate (serPort, 0.25, 0.0);
+SetFwdVelAngVelCreate (serPort, 0.1, 0.0);
 
-if (bRight | bCenter | bLeft)
-    display ('Home!');
-    SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
-    return;
+while (true)
+    [bRight bLeft x y z bCenter] = BumpsWheelDropsSensorsRoomba (serPort);
+    if (bRight | bCenter | bLeft)
+        display ('Home!');
+        SetFwdVelAngVelCreate (serPort, 0.0, 0.0);
+        break;
+    end
 end
+
+travelDist (serPort, 0.1, -0.05);
+travelDist (serPort, 0.1, 0.06);
+travelDist (serPort, 0.1, -0.03);
+travelDist (serPort, 0.1, 0.04);
 
 end
 
@@ -74,7 +90,7 @@ end
 
 % SetFwdVelAngVelCreate (serPort, 0.2, 0.0);
 
-end
+
 
 function stats = correctPath (serPort)
 
@@ -236,7 +252,7 @@ end
 
 function [center_of_mass, region_of_interest] = camera_old()
 
-image = imread('http://192.168.0.101/img/snapshot.cgi?');
+image = imread('http://192.168.0.100/img/snapshot.cgi?');
 [BW, maskedRGBImage] = createMask(image);
 [x, y] = size(BW)
 imshow(BW);
@@ -265,7 +281,8 @@ function total_angle_turned = findDoor(serPort, door_side)
     max_roi = 0;
     max_angle = 0;
 
-    for x in [30, 60 , 90, 120]
+    for i = 1:4
+        x = 30 * i;
         turn_to_target(serPort, 30 * door_side);
         [com, roi] = camera();
         if (roi > max_roi)
@@ -307,7 +324,8 @@ function total_angle_turned = findDoor(serPort, door_side)
 
         [com, roi] = camera();
     end
-
+    total_angle_turned
+end
 
 function findDoor_old(serPort)
 
@@ -367,7 +385,7 @@ function ed= find_light (img)
     I(centerIndex:end,:) = cast (0, class(I));
  
     % do threasholding for lights
-    bw = im2bw (I, 0.97);
+    bw = im2bw (I, 0.95);
     se = strel ('square', 7);
     ed = imerode (bw, se);
     % prop = ed;
@@ -416,14 +434,15 @@ function tuneOrientation(serPort)
 end
 
 function tune_pos = findTunePos(serPort)
-    image = imread('http://192.168.0.101/img/snapshot.cgi?');
-    imshow(image)
+    image = imread('http://192.168.0.100/img/snapshot.cgi?');
+    imshow(image);
     ed = find_light(image);
+    imshow(ed);
     prop_area = regionprops(ed, 'area');
     while (length(prop_area) == 0)
         display('!!!nothing here!!!')
         turnAngle(serPort, 0.025, 60);
-        image = imread('http://192.168.0.101/img/snapshot.cgi?');
+        image = imread('http://192.168.0.100/img/snapshot.cgi?');
         imshow(image);
         ed = find_light(image);
     end
@@ -439,4 +458,3 @@ function tune_pos = findTunePos(serPort)
     centroids = cat(1, prop_centroid.Centroid);
     tune_pos = centroids(max_index, 1)
 end
-
